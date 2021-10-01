@@ -1,0 +1,10 @@
+version: '2.1'
+
+services:
+  builder:
+    build:
+      context: ./
+    volumes:
+      - './conf/:/app/conf/'
+      - './input/:/app/input/'
+      - './output/:/app/output/'
