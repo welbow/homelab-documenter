@@ -31,7 +31,8 @@ class HTMLOutput (Plugin):
                 
                 for itemkey in sorted(vars.output.keys()):
                     item = vars.output[itemkey]
-                    h1(item['title'],name=itemkey)
+                    a(name=itemkey)
+                    h1(item['title'])
 
                     div(item['output'])
 
