@@ -17,14 +17,12 @@ class TableOfContents (Plugin):
         
         self._logger.info('Generating table of contents')
 
-        output = []
-
-        with ol():
+        with ol() as o:
             for itemkey in sorted(vars.output.keys()):
-                output.append(str(li(a(vars.output[itemkey]['title'],href='#{0}'.format(itemkey)))))
+                li(a(vars.output[itemkey]['title'],href='#{0}'.format(itemkey)))
         
         self.addOutput(
-            output=raw(''.join(output)),
+            output=o,
             title=self._config['title'],
             seq=self._config['seq_number'],
             keyname="table-of-contents"
