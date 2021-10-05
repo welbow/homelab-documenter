@@ -28,7 +28,8 @@ class StaticFile (Plugin):
                 output=output, 
                 title=staticfile.get('title', 'No title specified'), 
                 seq=staticfile.get('seq_number', None),
-                keyname=staticfile.get('key_name', None)
+                keyname=staticfile.get('key_name', None),
+                hide_surround=staticfile.get('hide_surround', False)
             )
 
 def getPlugin():

@@ -31,12 +31,15 @@ class HTMLOutput (Plugin):
                 
                 for itemkey in sorted(vars.output.keys()):
                     item = vars.output[itemkey]
-                    a(name=itemkey)
-                    h1(item['title'])
+                    
+                    if not item.get('hide_surround', False):
+                        a(name=itemkey)
+                        h1(item['title'])
 
                     div(item['output'])
 
-                    div(p(a('Return to top',href='#top')))
+                    if not item.get('hide_surround', False):
+                        div(p(a('Return to top',href='#top')))
 
         outputfilename = self.makeOutputFilePath(self._config['outputfile'])
         self._logger.info('Writing HTML to file {0}'.format(outputfilename))

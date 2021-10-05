@@ -19,7 +19,8 @@ class TableOfContents (Plugin):
 
         with ol() as o:
             for itemkey in sorted(vars.output.keys()):
-                li(a(vars.output[itemkey]['title'],href='#{0}'.format(itemkey)))
+                if not vars.output[itemkey].get('hide_surround', False):
+                    li(a(vars.output[itemkey]['title'],href='#{0}'.format(itemkey)))
         
         self.addOutput(
             output=o,
