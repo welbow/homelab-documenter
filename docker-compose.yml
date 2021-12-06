@@ -4,6 +4,8 @@ services:
   builder:
     build:
       context: ./
+    stdin_open: true
+    tty: true
     volumes:
       - './conf/:/app/conf/'
       - './input/:/app/input/'
