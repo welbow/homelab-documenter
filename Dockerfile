@@ -4,8 +4,8 @@ WORKDIR /app
 COPY . .
 
 RUN apk update &&\
-    apk add --virtual build-deps --no-cache wget unzip gcc musl-dev libffi-dev &&\
-    apk add -U --no-cache bash nmap libc6-compat gcompat &&\
+    chmod 755 /app/install-apk-pkgs.sh &&\
+    /app/install-apk-pkgs.sh &&\
     pip3 install -r requirements.txt --no-cache-dir &&\
     cd /app &&\
     mkdir -p /app/bin &&\

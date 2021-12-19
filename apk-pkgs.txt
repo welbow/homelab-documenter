@@ -1,0 +1,4 @@
+bash
+gcompat
+libc6-compat
+nmap
