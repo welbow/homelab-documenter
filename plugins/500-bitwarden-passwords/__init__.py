@@ -25,9 +25,20 @@ class BitwardenPasswords (Plugin):
         
         self._logger.info('Starting Bitwarden queries')
 
-        self._logger.debug('Setting apikey environment variables')
-        os.environ["BW_CLIENTID"] = self._config['client_id']
-        os.environ["BW_CLIENTSECRET"] = self._config['client_secret']
+        # The API key comes only from the environment (the gitignored .env,
+        # passed through by docker-compose.yml) - never from config.json.
+        # `bw login --apikey` reads BW_CLIENTID / BW_CLIENTSECRET itself.
+        # To regenerate: see .env.example.
+        if 'client_id' in self._config or 'client_secret' in self._config:
+            self._logger.warning('client_id/client_secret in config.json are '
+                                 'ignored; remove them and use .env instead')
+
+        missing = [v for v in ('BW_CLIENTID', 'BW_CLIENTSECRET')
+                   if not os.environ.get(v)]
+        if missing:
+            raise RuntimeError('{0} not set - copy .env.example to .env and '
+                               'fill in your Bitwarden API key'.format(
+                                   ', '.join(missing)))
 
         self._logger.debug('Setting BW server from config')
         bwkr.bw('config', 'server', '{0}'.format(self._config['server_url']))

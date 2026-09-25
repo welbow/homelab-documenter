@@ -1,0 +1,13 @@
+# Copy to docker-compose.override.yml (gitignored) to point the engine at your
+# content repo. Compose merges it automatically, and these volume entries
+# replace the ./conf, ./input and ./output defaults in docker-compose.yml.
+#
+# Example layout, with both repos cloned side by side:
+#   homelab-documenter/            <- this repo (the engine)
+#   my-homelab-content/            <- your content: conf/, input/, output/
+services:
+  builder:
+    volumes:
+      - '../my-homelab-content/conf/:/app/conf/'
+      - '../my-homelab-content/input/:/app/input/'
+      - '../my-homelab-content/output/:/app/output/'

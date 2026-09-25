@@ -6,6 +6,10 @@ services:
       context: ./
     stdin_open: true
     tty: true
+    # Bitwarden API key, read from the gitignored .env (see .env.example).
+    environment:
+      BW_CLIENTID: ${BW_CLIENTID:-}
+      BW_CLIENTSECRET: ${BW_CLIENTSECRET:-}
     volumes:
       - './conf/:/app/conf/'
       - './input/:/app/input/'
