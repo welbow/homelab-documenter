@@ -1,3 +1,12 @@
 bin
 __pycache__
 *.pyc
+
+# Never bake secrets or personal content into the image: the key lives in
+# .env and content (conf/, input/, output/) is mounted at runtime.
+.env
+docker-compose.override.yml
+conf/
+input/
+output/
+.git/
