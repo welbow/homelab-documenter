@@ -12,7 +12,8 @@ ITEM_TYPES = {
     1: 'Login',
     2: 'Secure Note',
     3: 'Card',
-    4: 'Identity'
+    4: 'Identity',
+    5: 'SSH Key'
 }
 
 class BitwardenPasswords (Plugin):
@@ -91,7 +92,9 @@ class BitwardenPasswords (Plugin):
 
                 o = { 
                     'folder': item['folder_name'],
-                    'type': ITEM_TYPES[item['type']],
+                    # Don't crash on item types newer Bitwarden releases add
+                    'type': ITEM_TYPES.get(item['type'],
+                                           'Unknown ({0})'.format(item['type'])),
                     'name': item['name']
                 }
 

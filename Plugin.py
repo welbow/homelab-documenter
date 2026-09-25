@@ -15,13 +15,14 @@ class Plugin:
 
         # Does our plugin have config defined? If not, bail
         if type(self).__name__ not in vars.config['plugins'].keys():
-            self._logger.warn('No config for plugin found')
+            self._logger.warning('No config for plugin found')
             return False
-        
+
         self._config = vars.config['plugins'][type(self).__name__]
 
-        if self._config['enabled'] != 1:
-            self._logger.warn('Plugin disabled by configuration')
+        # A plugin config without "enabled" counts as disabled
+        if self._config.get('enabled', 0) != 1:
+            self._logger.warning('Plugin disabled by configuration')
             return False
 
         return True

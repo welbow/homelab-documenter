@@ -1,7 +1,5 @@
 import logging
 
-import pytest
-
 import vars
 from Plugin import Plugin
 
@@ -59,8 +57,6 @@ def test_getConfig_enabled_loads_plugin_config():
     assert plugin._config['x'] == 42
 
 
-@pytest.mark.xfail(raises=KeyError,
-                   reason='#8: missing "enabled" key raises KeyError')
 def test_getConfig_missing_enabled_is_disabled():
     vars.config = {'plugins': {'Dummy': {}}}
 
