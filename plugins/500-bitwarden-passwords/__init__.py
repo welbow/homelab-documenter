@@ -19,6 +19,16 @@ ITEM_TYPES = {
 class BitwardenPasswords (Plugin):
     def __init__(self):
         super().__init__()
+
+    def _bw(self, *args, **kwargs):
+        # A failing bw call raises ValueError chained to a
+        # CalledProcessError whose command line holds `--session <token>`;
+        # drop that chain so a traceback can't print the session token.
+        try:
+            return bwkr.bw(*args, **kwargs)
+        except ValueError as exc:
+            raise RuntimeError('bw {0} failed: {1}'.format(
+                args[0], exc)) from None
     
     def run(self):
         if not self.getConfig():
@@ -42,27 +52,27 @@ class BitwardenPasswords (Plugin):
                                    ', '.join(missing)))
 
         self._logger.debug('Setting BW server from config')
-        bwkr.bw('config', 'server', '{0}'.format(self._config['server_url']))
+        self._bw('config', 'server', '{0}'.format(self._config['server_url']))
 
-        status = json.loads(bwkr.bw('status'))
+        status = json.loads(self._bw('status'))
         
         if status['status'] == 'locked':
             self._logger.info('Logged in already; skipping...')
         else:
             self._logger.info('Logging in with apikey')
-            bwkr.bw('login', '--apikey')
+            self._bw('login', '--apikey')
 
         self._logger.debug('Getting BW session')
         session = bwkr.get_session(os.environ)
 
         self._logger.info('Syncing BW vault')
-        bwkr.bw("sync", session=session)
+        self._bw("sync", session=session)
 
         self._logger.info('Getting BW folders')
-        folders = json.loads(bwkr.bw('list', 'folders', session=session))
+        folders = json.loads(self._bw('list', 'folders', session=session))
 
         self._logger.info('Runnig BW query')
-        results = json.loads(bwkr.bw("list", "items", session=session))
+        results = json.loads(self._bw("list", "items", session=session))
 
         for item in results:
             folder = next( f for f in folders if f["id"] == item['folderId'] )
@@ -125,7 +135,7 @@ class BitwardenPasswords (Plugin):
 
         if self._config.get('logout', 1) == 1:
             self._logger.debug('Logging out')
-            bwkr.bw('logout')
+            self._bw('logout')
 
             self._logger.debug('Clearing environment variables')
             os.environ["BW_CLIENTID"] = ''
