@@ -1,0 +1,33 @@
+name: Tests
+on:
+  push:
+  pull_request:
+  workflow_dispatch: {}
+jobs:
+  test:
+    runs-on: docker
+    # docker:cli has the Docker client (the runner points it at its
+    # docker-in-docker daemon via DOCKER_HOST) but no Node, so check out with
+    # plain git instead of actions/checkout.
+    container:
+      image: docker:cli
+    steps:
+      - name: Check out
+        env:
+          TOKEN: ${{ github.token }}
+          SERVER: ${{ github.server_url }}
+        run: |
+          apk add --no-cache git >/dev/null
+          git clone --quiet "${SERVER%%://*}://ci:${TOKEN}@${SERVER#*://}/${{ github.repository }}.git" .
+          git checkout --quiet ${{ github.sha }}
+      # Build the real image (tests/ is copied in by `COPY . .`) and run the
+      # suite inside it, so the image smoke tests (nmap, bw) run too.
+      - name: Build image
+        run: docker build -q -t homelab-documenter-ci:${{ github.sha }} .
+      - name: Run tests
+        run: |
+          docker run --rm -w /app --entrypoint sh homelab-documenter-ci:${{ github.sha }} \
+            -c 'pip install -q --disable-pip-version-check -r requirements-dev.txt && python -m pytest -v -rxXs'
+      - name: Remove image
+        if: always()
+        run: docker rmi homelab-documenter-ci:${{ github.sha }} || true

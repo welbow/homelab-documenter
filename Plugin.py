@@ -51,15 +51,16 @@ class Plugin:
         vars.output[new_module_key] = new_output
 
     def getInputFilePath(self,file):
-        return os.path.join(os.path.curdir, 'input',
+        return os.path.join(vars.data_dir, 'input',
             type(self).__name__, file)
 
     def makeOutputFilePath(self, filename):
-        return os.path.join(os.path.curdir, 'output', filename)
+        return os.path.join(vars.data_dir, 'output', filename)
 
     def __init__(self):
+        # Plugins are created before the config is loaded, so config is
+        # only read in run() (via getConfig), never here.
         self._logger=logging.getLogger(type(self).__name__)
-        self.getConfig()
 
     def run(self):
         pass

@@ -14,3 +14,19 @@ services:
       - './conf/:/app/conf/'
       - './input/:/app/input/'
       - './output/:/app/output/'
+
+  # Test suite: `docker compose run --rm test` (extra args go to pytest).
+  # Mounts the working tree, so code changes need no rebuild.
+  test:
+    build:
+      context: ./
+    working_dir: /work
+    volumes:
+      - './:/work'
+    environment:
+      PYTHONDONTWRITEBYTECODE: '1'
+    entrypoint:
+      - sh
+      - -c
+      - pip install -q --disable-pip-version-check -r requirements-dev.txt && exec python -m pytest "$$@"
+      - pytest

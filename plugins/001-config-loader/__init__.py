@@ -1,6 +1,7 @@
 import json
 global logging
 import logging
+import os
 
 import vars
 from Plugin import Plugin
@@ -10,7 +11,7 @@ class ConfigLoader (Plugin):
         super().__init__()
     
     def run(self):
-        with open('conf/config.json') as json_file:
+        with open(os.path.join(vars.data_dir, 'conf', 'config.json')) as json_file:
             vars.config = json.load(json_file)
 
         self._logger.info('Read config from file')
