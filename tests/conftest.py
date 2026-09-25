@@ -1,6 +1,8 @@
+import datetime
 import json
 import os
 import sys
+import zoneinfo
 
 import pytest
 
@@ -9,7 +11,13 @@ if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
 import pipeline  # noqa: E402
+import stamp  # noqa: E402
 import vars  # noqa: E402
+
+# Every run in the tests is "generated" at this moment, so output is
+# repeatable
+FIXED_NOW = datetime.datetime(2026, 9, 25, 19, 42,
+                              tzinfo=zoneinfo.ZoneInfo('America/New_York'))
 
 
 # A small, fake content repo: three static sections (one of them a
@@ -73,6 +81,12 @@ class Content:
 def no_skipped_plugins(monkeypatch):
     # A developer's SKIP_PLUGINS must not change what the tests run
     monkeypatch.delenv('SKIP_PLUGINS', raising=False)
+
+
+@pytest.fixture(autouse=True)
+def fixed_stamp(monkeypatch):
+    monkeypatch.setattr(stamp, 'now', lambda: FIXED_NOW)
+    monkeypatch.setenv('ENGINE_COMMIT', 'abc1234')
 
 
 @pytest.fixture(autouse=True)

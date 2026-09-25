@@ -12,6 +12,8 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-}
       # Optional; plugins to skip, e.g. 500,100 (see .env.example)
       SKIP_PLUGINS: ${SKIP_PLUGINS:-}
+      # Time zone for the generation stamp, e.g. America/New_York (default UTC)
+      TZ: ${TZ:-}
     volumes:
       - './conf/:/app/conf/'
       - './input/:/app/input/'

@@ -2,3 +2,4 @@ dominate
 python-nmap
 keyring
 bitwarden-keyring
+tzdata

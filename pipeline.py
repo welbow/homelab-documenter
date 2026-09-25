@@ -4,6 +4,7 @@ import os
 import sys
 
 import logconfig
+import stamp
 import vars
 
 logger = logging.getLogger('main')
@@ -91,6 +92,8 @@ def main(data_dir=os.curdir, skip=()):
     logger.info('Starting {0}'.format(sys.argv[0]))
 
     vars.reset(data_dir)
+    vars.stamp = stamp.make()
+    logger.info(stamp.text(vars.stamp))
 
     plugins = discover_plugins()
 

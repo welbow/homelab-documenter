@@ -10,3 +10,7 @@ conf/
 input/
 output/
 .git/
+# ...except what stamp.py needs to name the engine's commit (hashes only)
+!.git/HEAD
+!.git/refs/heads/
+!.git/packed-refs
