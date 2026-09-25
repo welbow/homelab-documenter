@@ -3,6 +3,7 @@ import logging
 import os
 import sys
 
+import logconfig
 import vars
 
 logger = logging.getLogger('main')
@@ -34,8 +35,12 @@ def discover_plugins(plugins_dir=os.path.join(APP_DIR, 'plugins')):
 def main(data_dir=os.curdir):
     """Run every plugin in order against the content in data_dir
     (which holds conf/, input/ and output/)."""
-    logging.basicConfig(level=logging.DEBUG,
-                        format='%(asctime)s %(name)s %(levelname)s:%(message)s')
+    logging.basicConfig(format='%(asctime)s %(name)s %(levelname)s:%(message)s')
+    # LOG_LEVEL wins; otherwise INFO until the config loader applies
+    # the config's log_level
+    logging.getLogger().setLevel(logconfig.DEFAULT_LEVEL)
+    if logconfig.env_level():
+        logconfig.set_level(logconfig.env_level())
 
     logger.info('Starting {0}'.format(sys.argv[0]))
 

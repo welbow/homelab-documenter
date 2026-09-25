@@ -8,6 +8,8 @@ services:
     environment:
       BW_CLIENTID: ${BW_CLIENTID:-}
       BW_CLIENTSECRET: ${BW_CLIENTSECRET:-}
+      # Optional; overrides log_level in config.json (default INFO)
+      LOG_LEVEL: ${LOG_LEVEL:-}
     volumes:
       - './conf/:/app/conf/'
       - './input/:/app/input/'
