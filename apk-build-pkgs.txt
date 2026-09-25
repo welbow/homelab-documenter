@@ -1,5 +1,0 @@
-gcc
-libffi-dev
-musl-dev
-unzip
-wget

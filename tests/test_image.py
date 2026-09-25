@@ -20,8 +20,6 @@ def test_nmap_runs():
 
 
 @in_image
-@pytest.mark.xfail(reason='#9: current bw builds need glibc symbols '
-                          '(fcntl64) that Alpine 3.15 gcompat lacks')
 def test_bw_runs():
     result = run('/app/bin/bw', '--version')
 
