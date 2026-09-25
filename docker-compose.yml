@@ -10,6 +10,8 @@ services:
       BW_CLIENTSECRET: ${BW_CLIENTSECRET:-}
       # Optional; overrides log_level in config.json (default INFO)
       LOG_LEVEL: ${LOG_LEVEL:-}
+      # Optional; plugins to skip, e.g. 500,100 (see .env.example)
+      SKIP_PLUGINS: ${SKIP_PLUGINS:-}
     volumes:
       - './conf/:/app/conf/'
       - './input/:/app/input/'

@@ -70,6 +70,12 @@ class Content:
 
 
 @pytest.fixture(autouse=True)
+def no_skipped_plugins(monkeypatch):
+    # A developer's SKIP_PLUGINS must not change what the tests run
+    monkeypatch.delenv('SKIP_PLUGINS', raising=False)
+
+
+@pytest.fixture(autouse=True)
 def clean_state():
     vars.reset()
     yield
