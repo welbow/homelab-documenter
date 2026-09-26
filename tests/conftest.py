@@ -10,6 +10,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
+import credentials  # noqa: E402
 import pipeline  # noqa: E402
 import stamp  # noqa: E402
 import vars  # noqa: E402
@@ -83,6 +84,15 @@ def no_skipped_plugins(monkeypatch):
     # tests run or where they write
     monkeypatch.delenv('SKIP_PLUGINS', raising=False)
     monkeypatch.delenv('BUILD_DIR', raising=False)
+
+
+@pytest.fixture(autouse=True)
+def isolated_credentials(monkeypatch, tmp_path):
+    # Never read or create a real instance key or credentials
+    monkeypatch.setenv('KEYS_DIR', str(tmp_path / 'keys'))
+    monkeypatch.setenv('SECRETS_DIR', str(tmp_path / 'secrets'))
+    # A small key keeps the tests fast; real installs use 3072 bits
+    monkeypatch.setattr(credentials, 'KEY_SIZE', 1024)
 
 
 @pytest.fixture(autouse=True)

@@ -3,13 +3,14 @@ x-packet: &packet
   build:
     context: ./
   image: homelab-documenter
-  # Interactive, for the Bitwarden master password prompt
+  # Interactive, for the master password prompt when it isn't stored
   stdin_open: true
   tty: true
   environment:
-    # Bitwarden API key, read from the gitignored .env (see .env.example).
-    BW_CLIENTID: ${BW_CLIENTID:-}
-    BW_CLIENTSECRET: ${BW_CLIENTSECRET:-}
+    # Encrypted credentials (#22), the only place secrets are kept: this
+    # install's key and the .enc files (see the secrets service below)
+    KEYS_DIR: /keys
+    SECRETS_DIR: /app/secrets
     # Optional; overrides log_level in config.json (default INFO)
     LOG_LEVEL: ${LOG_LEVEL:-}
     # Optional; plugins to skip, e.g. 500,100 (see .env.example)
@@ -28,6 +29,15 @@ x-packet: &packet
     - './input/:/app/input/'
     # Extra files shipped with the page (e.g. stylesheets); read-only
     - './output/:/app/output/:ro'
+    # Encrypted credentials; read-only here, written by the secrets service
+    - './secrets/:/app/secrets/:ro'
+    - 'keys:/keys'
+
+# This install's private key (#22): in Docker's own storage, not in the
+# repos or your folders. Losing it only means setting the credentials again.
+volumes:
+  keys:
+    name: homelab-documenter-keys
 
 # Always use `docker compose run --rm` so no container is left behind.
 services:
@@ -35,7 +45,7 @@ services:
   #   docker compose run --rm --service-ports preview
   # then open http://127.0.0.1:8000 and print from the browser.
   # The service's options are in its entrypoint, so extra options given
-  # to `docker compose run` (e.g. --skip 500, --password-stdin) add to them.
+  # to `docker compose run` (e.g. --skip 500) add to them.
   preview:
     <<: *packet
     entrypoint: ['/app/entrypoint.sh', '--preview']
@@ -48,12 +58,29 @@ services:
   # /export has no mount here on purpose: add one in
   # docker-compose.override.yml (see the .example). Without it the run
   # stops with an error instead of writing into the container.
-  #
-  # Unattended, with the master password from Windows Credential Manager:
-  #   powershell -File scripts\bw-password.ps1 | docker compose run --rm -T build --password-stdin
+  # Runs unattended once the credentials are stored (secrets service).
   build:
     <<: *packet
     entrypoint: ['/app/entrypoint.sh', '--export', '/export', '--require-mount']
+
+  # Store, list, check or remove encrypted credentials (#22); values are
+  # never printed:
+  #   docker compose run --rm secrets set bw_master_password   (prompts)
+  #   docker compose run --rm secrets list
+  #   docker compose run --rm secrets check
+  secrets:
+    image: homelab-documenter
+    build:
+      context: ./
+    stdin_open: true
+    tty: true
+    environment:
+      KEYS_DIR: /keys
+      SECRETS_DIR: /app/secrets
+    volumes:
+      - './secrets/:/app/secrets/'
+      - 'keys:/keys'
+    entrypoint: ['python', '/app/secrets_cli.py']
 
   # Test suite: `docker compose run --rm test` (extra args go to pytest).
   # Mounts the working tree, so code changes need no rebuild.

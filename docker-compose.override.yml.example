@@ -7,13 +7,15 @@
 #
 # Example layout, with both repos cloned side by side:
 #   homelab-documenter/            <- this repo (the engine)
-#   my-homelab-content/            <- your content: conf/, input/, output/
+#   my-homelab-content/            <- your content: conf/, input/, output/,
+#                                     secrets/ (encrypted credentials)
 
 # Your content repo, for both services
 x-content: &content
   - '../my-homelab-content/conf/:/app/conf/'
   - '../my-homelab-content/input/:/app/input/'
   - '../my-homelab-content/output/:/app/output/:ro'
+  - '../my-homelab-content/secrets/:/app/secrets/:ro'
 
 # Your LAN's DNS servers, so the container's resolver knows the LAN's
 # names (Docker's default resolver doesn't); nmap uses it for hostnames.
@@ -34,20 +36,14 @@ services:
       - '../my-homelab-content/conf/:/app/conf/'
       - '../my-homelab-content/input/:/app/input/'
       - '../my-homelab-content/output/:/app/output/:ro'
+      - '../my-homelab-content/secrets/:/app/secrets/:ro'
       # Where the exported packet goes, e.g. a USB stick. Required: build
       # stops with an error if nothing is mounted at /export.
       #   Windows (Docker Desktop):  'E:/:/export'
       #   Linux:                     '/media/you/USBSTICK:/export'
       - 'E:/:/export'
-    # Optional: unlock the vault from the secret below instead of prompting
-    # secrets: [bw_master_password]
 
-# Optional: the Bitwarden master password as a Docker secret, so runs don't
-# prompt for it. The file must be outside both repos, and it holds the
-# password in plain text, protected only by file permissions. The
-# encrypted alternative is scripts/bw-password.ps1 with --password-stdin
-# (see docker-compose.yml). Add the secrets line to each service that
-# should use it.
-# secrets:
-#   bw_master_password:
-#     file: C:/Users/you/.secrets/bw_master_password
+  # Where `docker compose run --rm secrets set ...` writes (read-write)
+  secrets:
+    volumes:
+      - '../my-homelab-content/secrets/:/app/secrets/'

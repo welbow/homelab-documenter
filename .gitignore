@@ -136,3 +136,6 @@ dmypy.json
 # Other
 bin/
 docker-compose.override.yml
+
+# Encrypted credentials of the engine's own default content dir
+secrets/

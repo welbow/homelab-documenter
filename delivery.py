@@ -9,6 +9,8 @@ import os
 import posixpath
 import shutil
 
+import hostpath
+
 logger = logging.getLogger('delivery')
 
 # Names the engine gives its generated page (config outputfile and the
@@ -123,7 +125,8 @@ def export(page, extras_dir, target, skipped=(), force=False,
                        'because of --force'.format(', '.join(skipped)))
 
     if not os.path.isdir(target):
-        logger.error('Not exporting: {0} is not a folder'.format(target))
+        logger.error('Not exporting: {0} is not a folder'.format(
+            hostpath.describe(target)))
         return False
 
     copies = [(page, os.path.basename(page))]
@@ -141,10 +144,11 @@ def export(page, extras_dir, target, skipped=(), force=False,
                            '(outdated passwords?); delete it from output/ if '
                            'it should not be handed out'.format(name))
         if os.path.exists(destination):
-            logger.warning('Replacing {0}'.format(destination))
+            logger.warning('Replacing {0}'.format(hostpath.join(target, name)))
         os.makedirs(os.path.dirname(destination), exist_ok=True)
         shutil.copyfile(source, destination)
-        logger.info('Exported {0}'.format(destination))
+        logger.info('Exported {0}'.format(hostpath.join(target, name)))
 
-    logger.info('Exported {0} file(s) to {1}'.format(len(copies), target))
+    logger.info('Exported {0} file(s) to {1}'.format(
+        len(copies), hostpath.describe(target)))
     return True

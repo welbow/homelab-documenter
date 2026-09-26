@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import sys
 
+import credentials
 import vars
 from Plugin import Plugin
 
@@ -21,21 +22,21 @@ ITEM_TYPES = {
 # Where the bw CLI keeps its login and cached (encrypted) vault
 BW_DATA_DIR = os.path.expanduser('~/.config/Bitwarden CLI')
 
-# The master password as a Docker secret, if one is mounted (see
-# docker-compose.override.yml.example)
-PASSWORD_SECRET = '/run/secrets/bw_master_password'
-
 class BitwardenPasswords (Plugin):
     def __init__(self):
         super().__init__()
         self._session = None
+        # BW_CLIENTID / BW_CLIENTSECRET for `bw login --apikey`, from the
+        # encrypted credentials
+        self._api_key = {}
 
     def _bw(self, *args, interactive=False):
-        """Run the bw CLI and return its output. The session is passed in
-        the environment (BW_SESSION), never on the command line, so it
-        can't show up in the process list or an error message. With
+        """Run the bw CLI and return its output. The session and API key
+        are passed in bw's environment only, never on the command line, so
+        they can't show up in the process list or an error message. With
         interactive, bw may prompt on the terminal (master password)."""
         env = dict(os.environ)
+        env.update(self._api_key)
         if self._session:
             env['BW_SESSION'] = self._session
         result = subprocess.run(
@@ -48,40 +49,38 @@ class BitwardenPasswords (Plugin):
                 args[0], error or 'exit code {0}'.format(result.returncode)))
         return result.stdout
 
-    def _unlock(self):
-        """Unlock the vault. The master password comes, in order, from
-        --password-stdin (held in vars.bw_password), a Docker secret file,
-        or a prompt on the terminal. It never goes in the environment or
-        on a command line."""
-        if vars.bw_password:
-            self._logger.info('Unlocking vault with the password from stdin')
-            # bw reads it from a file: a private one in the build dir
-            # (a tmpfs in the container), deleted straight away
-            os.makedirs(vars.build_dir, exist_ok=True)
-            path = os.path.join(vars.build_dir, '.bw-password')
-            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-            try:
-                with os.fdopen(fd, 'w', encoding='utf-8') as f:
-                    f.write(vars.bw_password)
-                return self._bw('unlock', '--passwordfile', path,
-                                '--raw').strip()
-            finally:
-                os.remove(path)
-                vars.bw_password = None
+    def _unlock_with(self, password):
+        """Unlock with a known password. bw reads it from a file: a private
+        one in the build dir (a tmpfs in the container), deleted straight
+        away."""
+        os.makedirs(vars.build_dir, exist_ok=True)
+        path = os.path.join(vars.build_dir, '.bw-password')
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        try:
+            with os.fdopen(fd, 'w', encoding='utf-8') as f:
+                f.write(password)
+            return self._bw('unlock', '--passwordfile', path, '--raw').strip()
+        finally:
+            os.remove(path)
 
-        if os.path.exists(PASSWORD_SECRET):
-            self._logger.info('Unlocking vault with the password in '
-                              '{0}'.format(PASSWORD_SECRET))
-            return self._bw('unlock', '--passwordfile', PASSWORD_SECRET,
-                            '--raw').strip()
+    def _unlock(self):
+        """Unlock the vault with the encrypted bw_master_password
+        credential (#22), or else by asking on the terminal. The password
+        never goes in the environment or on a command line."""
+        password = credentials.get('bw_master_password')
+        if password:
+            self._logger.info('Unlocking vault with the encrypted '
+                              'bw_master_password credential')
+            return self._unlock_with(password)
 
         if not sys.stdin.isatty():
             raise RuntimeError(
-                'The vault is locked and there is no terminal to ask for the '
-                'master password. Use --password-stdin (see '
-                'scripts/bw-password.ps1), a {0} secret, or run with a '
-                'terminal.'.format(PASSWORD_SECRET))
-        self._logger.info('Unlocking vault; enter your master password')
+                'The vault is locked, the bw_master_password credential is '
+                'not set, and there is no terminal to ask for it. Store it '
+                'with: docker compose run --rm secrets set bw_master_password')
+        self._logger.info('Unlocking vault; enter your master password (or '
+                          'store it: docker compose run --rm secrets set '
+                          'bw_master_password)')
         return self._bw('unlock', '--raw', interactive=True).strip()
 
     def _login_and_unlock(self):
@@ -121,10 +120,7 @@ class BitwardenPasswords (Plugin):
             except (RuntimeError, OSError) as exc:
                 self._logger.debug('Ignoring: {0}'.format(exc))
         self._session = None
-
-        self._logger.debug('Clearing environment variables')
-        os.environ['BW_CLIENTID'] = ''
-        os.environ['BW_CLIENTSECRET'] = ''
+        self._api_key = {}
 
         self._logger.info('Removing the Bitwarden CLI data')
         shutil.rmtree(BW_DATA_DIR, ignore_errors=True)
@@ -135,31 +131,45 @@ class BitwardenPasswords (Plugin):
 
         self._logger.info('Starting Bitwarden queries')
 
-        # The API key comes only from the environment (the gitignored .env,
-        # passed through by docker-compose.yml) - never from config.json.
-        # `bw login --apikey` reads BW_CLIENTID / BW_CLIENTSECRET itself.
-        # To regenerate: see .env.example.
+        # The API key comes only from the encrypted credentials (#22), never
+        # config.json or .env. `bw login --apikey` reads BW_CLIENTID /
+        # BW_CLIENTSECRET from its environment. To regenerate the key: see
+        # .env.example.
         if 'client_id' in self._config or 'client_secret' in self._config:
             self._logger.warning('client_id/client_secret in config.json are '
-                                 'ignored; remove them and use .env instead')
+                                 'ignored; remove them and store the key with '
+                                 '`docker compose run --rm secrets set '
+                                 'bw_clientid` / bw_clientsecret')
+        if os.environ.get('BW_CLIENTID') or os.environ.get('BW_CLIENTSECRET'):
+            self._logger.warning('BW_CLIENTID/BW_CLIENTSECRET in the '
+                                 'environment are ignored; the encrypted '
+                                 'credentials are used')
         if 'logout' in self._config:
             self._logger.warning('"logout" in config.json is ignored: runs '
                                  'always log out, except when reusing a '
                                  'BW_SESSION')
 
-        missing = [v for v in ('BW_CLIENTID', 'BW_CLIENTSECRET')
-                   if not os.environ.get(v)]
+        self._api_key = {}
+        missing = []
+        for var in ('BW_CLIENTID', 'BW_CLIENTSECRET'):
+            value = credentials.get(var.lower())
+            if value:
+                self._api_key[var] = value
+            else:
+                missing.append(var.lower())
         if missing:
-            raise RuntimeError('{0} not set - copy .env.example to .env and '
-                               'fill in your Bitwarden API key'.format(
-                                   ', '.join(missing)))
+            raise RuntimeError(
+                'Bitwarden API key not stored ({0}). Store it with: {1} '
+                '(see .env.example for where to find the key)'.format(
+                    ', '.join(missing),
+                    ' and '.join('docker compose run --rm secrets set ' + n
+                                 for n in missing)))
 
         reusing = False
         try:
             reusing = self._login_and_unlock()
             self._query()
         finally:
-            vars.bw_password = None
             # A reused dev session stays open for the next run in that shell
             if not reusing:
                 self._clean_up()

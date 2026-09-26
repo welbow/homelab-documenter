@@ -1,38 +1,36 @@
 <#
 .SYNOPSIS
-Keeps the Bitwarden master password in Windows Credential Manager and hands
-it to the engine through a pipe (--password-stdin), so it is never in a
-file, an environment variable or on a command line.
+Moves the Bitwarden master password from Windows Credential Manager into
+the engine's encrypted credentials (#22), without it ever being typed
+again, echoed, or put in a file, environment variable or command line.
 
 .DESCRIPTION
-Store it once (prompts; nothing is echoed):
+Optional: the usual way to store it on any OS is simply
+    docker compose run --rm secrets set bw_master_password
+which prompts for it. This script is for keeping a copy in Credential
+Manager and encrypting from there:
+
+Store it in Credential Manager (prompts; nothing is echoed):
     powershell -File scripts\bw-password.ps1 -Set
 
-Then run unattended, from the engine repo:
-    powershell -File scripts\bw-password.ps1 -Run build      # export
-    powershell -File scripts\bw-password.ps1 -Run preview    # preview
+Encrypt it as the engine's bw_master_password credential (run from the
+engine repo; after this, `docker compose run --rm build` and `preview`
+unlock the vault by themselves):
+    powershell -File scripts\bw-password.ps1 -Encrypt
 
-Or pipe it yourself (from cmd, Git Bash or PowerShell 7.4+; Windows
-PowerShell 5.1 re-encodes pipes between programs, so use -Run there):
-    powershell -File scripts\bw-password.ps1 | docker compose run --rm -T build --password-stdin
-
-Remove it again:
+Remove the Credential Manager copy:
     powershell -File scripts\bw-password.ps1 -Remove
 
-The password is stored as a Generic credential named
-"homelab-documenter/bitwarden" (visible in Control Panel > Credential
-Manager > Windows Credentials), encrypted with your Windows login. Anyone
-who can run programs as you can read it, like any saved credential.
-Works in Windows PowerShell 5.1 and PowerShell 7.
+The Credential Manager copy is a Generic credential named
+"homelab-documenter/bitwarden" (Control Panel > Credential Manager >
+Windows Credentials), encrypted with your Windows login. Works in Windows
+PowerShell 5.1 and PowerShell 7.
 #>
-[CmdletBinding(DefaultParameterSetName = 'Print')]
+[CmdletBinding(DefaultParameterSetName = 'Help')]
 param(
     [Parameter(ParameterSetName = 'Set', Mandatory)] [switch] $Set,
     [Parameter(ParameterSetName = 'Remove', Mandatory)] [switch] $Remove,
-    [Parameter(ParameterSetName = 'Run', Mandatory)]
-    [ValidateSet('build', 'preview')] [string] $Run,
-    [Parameter(ParameterSetName = 'Run', ValueFromRemainingArguments)]
-    [string[]] $ExtraArgs
+    [Parameter(ParameterSetName = 'Encrypt', Mandatory)] [switch] $Encrypt
 )
 
 $ErrorActionPreference = 'Stop'
@@ -93,6 +91,27 @@ function Get-StoredPassword {
     $password
 }
 
+# Run docker (compose) from the engine repo with the password on its stdin
+# (read by `secrets set`).
+# Starting it here, rather than piping, avoids Windows PowerShell 5.1
+# re-encoding the pipe (which garbles non-ASCII passwords).
+function Invoke-DockerWithPassword([string[]] $DockerArgs) {
+    $psi = New-Object Diagnostics.ProcessStartInfo 'docker'
+    $psi.Arguments = ($DockerArgs | ForEach-Object {
+        if ($_ -match '[\s"]') { '"' + ($_ -replace '"', '\"') + '"' } else { $_ }
+    }) -join ' '
+    $psi.WorkingDirectory = Split-Path -Parent $PSScriptRoot
+    $psi.UseShellExecute = $false
+    $psi.RedirectStandardInput = $true
+    $process = [Diagnostics.Process]::Start($psi)
+    $stdin = $process.StandardInput.BaseStream
+    $bytes = (New-Object Text.UTF8Encoding $false).GetBytes((Get-StoredPassword) + "`n")
+    $stdin.Write($bytes, 0, $bytes.Length)
+    $stdin.Close()
+    $process.WaitForExit()
+    $process.ExitCode
+}
+
 switch ($PSCmdlet.ParameterSetName) {
     'Set' {
         $secure = Read-Host -AsSecureString 'Bitwarden master password'
@@ -113,34 +132,12 @@ switch ($PSCmdlet.ParameterSetName) {
             Write-Host "Nothing stored under '$Target'."
         }
     }
-    'Print' {
-        # UTF-8 without a byte-order mark, one line, for --password-stdin
-        $stdout = [Console]::OpenStandardOutput()
-        $bytes = (New-Object Text.UTF8Encoding $false).GetBytes((Get-StoredPassword) + "`n")
-        $stdout.Write($bytes, 0, $bytes.Length)
-        $stdout.Flush()
+    'Encrypt' {
+        # Stored encrypted to this install's key; the value is never printed
+        exit (Invoke-DockerWithPassword @('compose', 'run', '--rm', '-T',
+            'secrets', 'set', 'bw_master_password'))
     }
-    'Run' {
-        # Run docker compose here, from the engine repo, with the password on
-        # its stdin; this avoids the shell re-encoding a pipe
-        $repo = Split-Path -Parent $PSScriptRoot
-        $dockerArgs = @('compose', 'run', '--rm', '-T')
-        if ($Run -eq 'preview') { $dockerArgs += '--service-ports' }
-        $dockerArgs += @($Run, '--password-stdin') + @($ExtraArgs | Where-Object { $_ })
-
-        $psi = New-Object Diagnostics.ProcessStartInfo 'docker'
-        $psi.Arguments = ($dockerArgs | ForEach-Object {
-            if ($_ -match '[\s"]') { '"' + ($_ -replace '"', '\"') + '"' } else { $_ }
-        }) -join ' '
-        $psi.WorkingDirectory = $repo
-        $psi.UseShellExecute = $false
-        $psi.RedirectStandardInput = $true
-        $process = [Diagnostics.Process]::Start($psi)
-        $stdin = $process.StandardInput.BaseStream
-        $bytes = (New-Object Text.UTF8Encoding $false).GetBytes((Get-StoredPassword) + "`n")
-        $stdin.Write($bytes, 0, $bytes.Length)
-        $stdin.Close()
-        $process.WaitForExit()
-        exit $process.ExitCode
+    default {
+        Get-Help $PSCommandPath -Detailed
     }
 }

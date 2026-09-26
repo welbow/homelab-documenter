@@ -5,7 +5,6 @@ import os
 import sys
 
 import delivery
-import password_stdin
 import pipeline
 import vars
 
@@ -30,20 +29,9 @@ if __name__ == '__main__':
                         help='plugins to skip for this run, by number, '
                              'directory or class name (comma-separated or '
                              'repeated); added to SKIP_PLUGINS')
-    parser.add_argument('--password-stdin', action='store_true',
-                        help='read the Bitwarden master password from '
-                             'standard input (one line), e.g. piped from '
-                             'scripts/bw-password.ps1')
     args = parser.parse_args()
 
-    bw_password = None
-    if args.password_stdin:
-        try:
-            bw_password = password_stdin.read(sys.stdin)
-        except ValueError as exc:
-            parser.error(str(exc))
-
-    status = pipeline.main(skip=args.skip, bw_password=bw_password)
+    status = pipeline.main(skip=args.skip)
     if status != 0 or vars.page is None:
         sys.exit(status or 1)
 

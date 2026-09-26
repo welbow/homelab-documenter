@@ -7,6 +7,7 @@ import traceback
 
 import pytest
 
+import credentials
 import vars
 
 bwmod = importlib.import_module('plugins.500-bitwarden-passwords')
@@ -60,7 +61,6 @@ def bw_plugin(monkeypatch, tmp_path):
         bwmod.subprocess, 'run',
         lambda *a, **k: pytest.fail('bw CLI must not be called: {0}'.format(a)))
     monkeypatch.setattr(bwmod, 'BW_DATA_DIR', str(tmp_path / 'bw-data'))
-    monkeypatch.setattr(bwmod, 'PASSWORD_SECRET', str(tmp_path / 'secret'))
     monkeypatch.setattr(bwmod.sys.stdin, 'isatty', lambda: True,
                         raising=False)
     vars.build_dir = str(tmp_path / 'build')
@@ -71,8 +71,8 @@ def bw_plugin(monkeypatch, tmp_path):
 
 @pytest.fixture
 def with_key(monkeypatch):
-    monkeypatch.setenv('BW_CLIENTID', 'user.example')
-    monkeypatch.setenv('BW_CLIENTSECRET', 'secret')
+    credentials.put('bw_clientid', 'user.example')
+    credentials.put('bw_clientsecret', 'secret')
 
 
 def fake(monkeypatch, **kwargs):
@@ -83,14 +83,17 @@ def fake(monkeypatch, **kwargs):
 
 def test_missing_key_stops_the_run(bw_plugin):
     with pytest.raises(RuntimeError,
-                       match='BW_CLIENTID, BW_CLIENTSECRET not set'):
+                       match=r'API key not stored \(bw_clientid, '
+                             r'bw_clientsecret\)'):
         bw_plugin.run()
 
 
-def test_names_only_the_missing_variable(bw_plugin, monkeypatch):
-    monkeypatch.setenv('BW_CLIENTID', 'user.example')
+def test_names_only_the_missing_credential(bw_plugin):
+    credentials.put('bw_clientid', 'user.example')
 
-    with pytest.raises(RuntimeError, match='^BW_CLIENTSECRET not set'):
+    with pytest.raises(RuntimeError, match=r'\(bw_clientsecret\)\. Store it '
+                                           r'with: docker compose run --rm '
+                                           r'secrets set bw_clientsecret'):
         bw_plugin.run()
 
 
@@ -126,7 +129,6 @@ def test_logged_out_logs_in_unlocks_queries_and_cleans_up(
     # the session is passed in the environment only after unlocking
     assert [s for _, s, _ in bw.calls[4:7]] == ['SESSION123'] * 3
     assert not (tmp_path / 'bw-data').exists()
-    assert os.environ['BW_CLIENTSECRET'] == ''
 
 
 def test_locked_vault_unlocks_without_logging_in(bw_plugin, with_key,
@@ -139,36 +141,9 @@ def test_locked_vault_unlocks_without_logging_in(bw_plugin, with_key,
     assert bw.commands()[:2] == ['status', 'unlock --raw']
 
 
-def test_stdin_password_unlocks_from_a_private_file_then_deletes_it(
-        bw_plugin, with_key, monkeypatch, tmp_path, caplog):
-    vars.bw_password = 'Tëst pass 1'
-    seen = {}
-    bw = FakeBw(status='locked')
-
-    def run(cmd, **kwargs):
-        if cmd[1] == 'unlock':
-            path = cmd[cmd.index('--passwordfile') + 1]
-            seen['path'] = path
-            with open(path, encoding='utf-8') as f:
-                seen['content'] = f.read()
-        return bw(cmd, **kwargs)
-    monkeypatch.setattr(bwmod.subprocess, 'run', run)
-
-    with caplog.at_level(logging.DEBUG):
-        bw_plugin.run()
-
-    assert seen['content'] == 'Tëst pass 1'
-    assert seen['path'].startswith(str(tmp_path / 'build'))
-    assert not os.path.exists(seen['path'])
-    assert vars.bw_password is None
-    assert all(not interactive for _, _, interactive in bw.calls)
-    assert 'Tëst pass 1' not in caplog.text
-    assert all('Tëst pass 1' not in ' '.join(a) for a, _, _ in bw.calls)
-
-
 def test_password_file_removed_even_if_unlock_fails(bw_plugin, with_key,
                                                     monkeypatch, tmp_path):
-    vars.bw_password = 'wrong'
+    credentials.put('bw_master_password', 'wrong')
     fake(monkeypatch, status='locked', fail={'unlock': 'Invalid password'})
 
     with pytest.raises(RuntimeError, match='bw unlock failed: Invalid'):
@@ -177,37 +152,14 @@ def test_password_file_removed_even_if_unlock_fails(bw_plugin, with_key,
     assert os.listdir(tmp_path / 'build') == []
 
 
-def test_docker_secret_unlocks_without_prompting(bw_plugin, with_key,
-                                                 monkeypatch, tmp_path):
-    (tmp_path / 'secret').write_text('master')
-    bw = fake(monkeypatch, status='locked')
-
-    bw_plugin.run()
-
-    assert 'unlock --passwordfile {0} --raw'.format(tmp_path / 'secret')         in bw.commands()
-    assert all(not interactive for _, _, interactive in bw.calls)
-
-
-def test_stdin_password_wins_over_the_secret(bw_plugin, with_key,
-                                             monkeypatch, tmp_path):
-    (tmp_path / 'secret').write_text('master')
-    vars.bw_password = 'piped'
-    bw = fake(monkeypatch, status='locked')
-
-    bw_plugin.run()
-
-    unlock = [c for c in bw.commands() if c.startswith('unlock')][0]
-    assert str(tmp_path / 'build') in unlock
-
-
-def test_no_password_source_and_no_terminal_is_a_clear_error(
+def test_no_stored_password_and_no_terminal_is_a_clear_error(
         bw_plugin, with_key, monkeypatch):
     monkeypatch.setattr(bwmod.sys.stdin, 'isatty', lambda: False,
                         raising=False)
     bw = fake(monkeypatch, status='locked')
 
-    with pytest.raises(RuntimeError, match='no terminal to ask for the '
-                                           'master password'):
+    with pytest.raises(RuntimeError, match='docker compose run --rm secrets '
+                                           'set bw_master_password'):
         bw_plugin.run()
 
     assert bw.commands()[-2:] == ['lock', 'logout']
@@ -290,3 +242,79 @@ def test_items_listed_with_types_and_folders(bw_plugin, with_key,
     assert home == [{'folder': 'Home', 'type': 'Login', 'name': 'nas',
                      'url': 'https://nas', 'username': 'admin',
                      'password': 'pw', 'mfa': True}]
+
+
+def unlock_passwords(monkeypatch, bw):
+    """Route bw calls to the fake, recording what each unlock read from
+    its password file."""
+    seen = []
+
+    def run(cmd, **kwargs):
+        if cmd[1] == 'unlock' and '--passwordfile' in cmd:
+            with open(cmd[cmd.index('--passwordfile') + 1],
+                      encoding='utf-8') as f:
+                seen.append(f.read())
+        return bw(cmd, **kwargs)
+    monkeypatch.setattr(bwmod.subprocess, 'run', run)
+    return seen
+
+
+def test_encrypted_master_password_unlocks_from_a_private_file(
+        bw_plugin, with_key, monkeypatch, tmp_path, caplog):
+    credentials.put('bw_master_password', 'Tëst pass 1')
+    bw = FakeBw(status='locked')
+    seen = unlock_passwords(monkeypatch, bw)
+
+    with caplog.at_level(logging.DEBUG):
+        bw_plugin.run()
+
+    assert seen == ['Tëst pass 1']
+    # the password file in the build dir is gone again
+    assert os.listdir(tmp_path / 'build') == []
+    assert all(not interactive for _, _, interactive in bw.calls)
+    assert all('Tëst pass 1' not in ' '.join(a) for a, _, _ in bw.calls)
+    assert 'Tëst pass 1' not in caplog.text
+
+
+def login_envs(monkeypatch, bw):
+    envs = []
+
+    def run(cmd, env=None, **kwargs):
+        if cmd[1] == 'login':
+            envs.append(env)
+        return bw(cmd, env=env, **kwargs)
+    monkeypatch.setattr(bwmod.subprocess, 'run', run)
+    return envs
+
+
+def test_api_key_goes_only_to_bw(bw_plugin, with_key, monkeypatch):
+    envs = login_envs(monkeypatch, FakeBw())
+
+    bw_plugin.run()
+
+    assert envs[0]['BW_CLIENTID'] == 'user.example'
+    assert envs[0]['BW_CLIENTSECRET'] == 'secret'
+    # only in bw's own environment, never the process's
+    assert 'BW_CLIENTSECRET' not in os.environ
+
+
+def test_env_api_key_is_ignored_with_warning(bw_plugin, with_key,
+                                            monkeypatch, caplog):
+    monkeypatch.setenv('BW_CLIENTSECRET', 'stale-from-env')
+    envs = login_envs(monkeypatch, FakeBw())
+
+    with caplog.at_level(logging.WARNING):
+        bw_plugin.run()
+
+    assert envs[0]['BW_CLIENTSECRET'] == 'secret'
+    assert 'in the environment are ignored' in caplog.text
+
+
+def test_undecryptable_credential_stops_the_run(bw_plugin, monkeypatch,
+                                                tmp_path):
+    credentials.put('bw_clientid', 'user.enc')
+    credentials.put('bw_clientsecret', 'enc-secret')
+    monkeypatch.setenv('KEYS_DIR', str(tmp_path / 'reset-volume'))
+
+    with pytest.raises(RuntimeError, match='has no key'):
+        bw_plugin.run()

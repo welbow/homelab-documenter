@@ -42,17 +42,15 @@ output = {}
 skipped = []
 # When and from what this run was generated (see stamp.py)
 stamp = {}
-# The Bitwarden master password from --password-stdin, until the
-# Bitwarden plugin uses it; never logged or written to disk
-bw_password = None
 
 
 def reset(new_data_dir=os.curdir):
     """Clear the state plugins share, so one run can't leak into the next."""
     global data_dir, build_dir, page, config, hosts, creds, output, skipped
-    global stamp, bw_password
+    global stamp
     data_dir = new_data_dir
-    build_dir = os.environ.get('BUILD_DIR', '').strip() or         os.path.join(data_dir, 'build')
+    build_dir = os.environ.get('BUILD_DIR', '').strip() or \
+        os.path.join(data_dir, 'build')
     page = None
     config = {}
     hosts = {}
@@ -60,4 +58,3 @@ def reset(new_data_dir=os.curdir):
     output = {}
     skipped = []
     stamp = {}
-    bw_password = None

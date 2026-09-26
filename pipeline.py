@@ -78,11 +78,10 @@ def select_plugins(plugins, skip):
     return selected
 
 
-def main(data_dir=os.curdir, skip=(), bw_password=None):
+def main(data_dir=os.curdir, skip=()):
     """Run every plugin in order against the content in data_dir
     (which holds conf/, input/ and output/), minus any plugins skipped
-    via SKIP_PLUGINS or skip. bw_password is the Bitwarden master
-    password from --password-stdin, if given."""
+    via SKIP_PLUGINS or skip."""
     logging.basicConfig(format='%(asctime)s %(name)s %(levelname)s:%(message)s')
     # LOG_LEVEL wins; otherwise INFO until the config loader applies
     # the config's log_level
@@ -93,7 +92,6 @@ def main(data_dir=os.curdir, skip=(), bw_password=None):
     logger.info('Starting {0}'.format(sys.argv[0]))
 
     vars.reset(data_dir)
-    vars.bw_password = bw_password
     vars.stamp = stamp.make()
     logger.info(stamp.text(vars.stamp))
 
@@ -107,9 +105,6 @@ def main(data_dir=os.curdir, skip=(), bw_password=None):
         logger.info('Running plugin {0}'.format(type(plugin).__name__))
         plugin.run()
         logger.info('Finished running plugin {0}'.format(type(plugin).__name__))
-
-    # Unused if the Bitwarden plugin was disabled or skipped; don't keep it
-    vars.bw_password = None
 
     if vars.skipped:
         logger.warning('Skipped {0}: this output is incomplete; do not hand '
