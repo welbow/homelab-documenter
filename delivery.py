@@ -6,6 +6,7 @@ import functools
 import http.server
 import logging
 import os
+import posixpath
 import shutil
 
 logger = logging.getLogger('delivery')
@@ -28,6 +29,23 @@ def extras(extras_dir):
             found.append(os.path.relpath(os.path.join(root, name),
                                          extras_dir))
     return found
+
+
+def is_mount_point(path, mountinfo='/proc/self/mountinfo'):
+    """Is something mounted at path (e.g. a bind mount of a USB stick)?
+    Reads the kernel's mount table where there is one (Linux, including
+    containers), else falls back to os.path.ismount."""
+    try:
+        with open(mountinfo) as f:
+            # Field 5 is the mount point, with spaces etc. octal-escaped
+            points = {line.split()[4].encode().decode('unicode_escape')
+                      for line in f if len(line.split()) > 4}
+    except OSError:
+        return os.path.ismount(path)
+    # The mount table only exists on Linux, so compare POSIX paths
+    if not path.startswith('/'):
+        path = posixpath.join(os.getcwd(), path)
+    return posixpath.normpath(path) in points
 
 
 def looks_like_packet(path):
@@ -83,9 +101,18 @@ def preview(page, extras_dir, host='127.0.0.1', port=8000):
     logger.info('Preview stopped')
 
 
-def export(page, extras_dir, target, skipped=(), force=False):
+def export(page, extras_dir, target, skipped=(), force=False,
+           require_mount=False):
     """Copy the page and every extra file into target, listing each one.
-    Refuses (returns False) if plugins were skipped, unless force."""
+    Refuses (returns False) if plugins were skipped, unless force, and,
+    with require_mount, if nothing is mounted at target (in a container
+    that would write into the container, where the copy is lost)."""
+    if require_mount and not is_mount_point(target):
+        logger.error('Not exporting: nothing is mounted at {0}. Mount the '
+                     'export folder (e.g. a USB stick) there; see '
+                     'docker-compose.override.yml.example.'.format(target))
+        return False
+
     if skipped and not force:
         logger.error('Not exporting: this run skipped {0}, so the packet is '
                      'incomplete. Run without skipping, or add --force.'

@@ -21,6 +21,9 @@ if __name__ == '__main__':
                            '(e.g. a USB stick); the only durable copy')
     parser.add_argument('--force', action='store_true',
                         help='export even if plugins were skipped')
+    parser.add_argument('--require-mount', action='store_true',
+                        help='refuse to export unless DIR is a mount point '
+                             '(used by the compose build service)')
     parser.add_argument('--skip', action='append', default=[],
                         metavar='PLUGINS',
                         help='plugins to skip for this run, by number, '
@@ -35,7 +38,8 @@ if __name__ == '__main__':
     extras_dir = os.path.join(vars.data_dir, 'output')
     if args.export:
         ok = delivery.export(vars.page, extras_dir, args.export,
-                             skipped=vars.skipped, force=args.force)
+                             skipped=vars.skipped, force=args.force,
+                             require_mount=args.require_mount)
         sys.exit(0 if ok else 2)
 
     delivery.preview(vars.page, extras_dir,

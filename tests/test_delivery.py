@@ -133,3 +133,40 @@ def test_preview_serves_page_and_extras(built):
     finally:
         server.shutdown()
         server.server_close()
+
+
+MOUNTINFO = (
+    '22 1 0:21 / / rw,relatime - overlay overlay rw\n'
+    '31 22 0:44 / /app/build rw - tmpfs tmpfs rw\n'
+    '32 22 0:45 / /export rw - 9p drvfs rw\n'
+    '33 22 0:46 / /media/usb\\040stick rw - vfat /dev/sdb1 rw\n'
+)
+
+
+def test_is_mount_point_reads_the_mount_table(tmp_path):
+    table = tmp_path / 'mountinfo'
+    table.write_text(MOUNTINFO)
+
+    assert delivery.is_mount_point('/export', str(table))
+    assert delivery.is_mount_point('/export/', str(table))
+    assert delivery.is_mount_point('/media/usb stick', str(table))
+    assert not delivery.is_mount_point('/app', str(table))
+    assert not delivery.is_mount_point('/exports', str(table))
+
+
+def test_export_with_require_mount_refuses_a_plain_folder(built, tmp_path,
+                                                          monkeypatch,
+                                                          caplog):
+    usb = tmp_path / 'usb'
+    usb.mkdir()
+    monkeypatch.setattr(delivery, 'is_mount_point', lambda path: False)
+
+    assert not delivery.export(vars.page, os.path.join(built.root, 'output'),
+                               str(usb), require_mount=True)
+    assert os.listdir(usb) == []
+    assert 'nothing is mounted at' in caplog.text
+
+    monkeypatch.setattr(delivery, 'is_mount_point', lambda path: True)
+    assert delivery.export(vars.page, os.path.join(built.root, 'output'),
+                           str(usb), require_mount=True)
+    assert 'output.html' in os.listdir(usb)

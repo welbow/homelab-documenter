@@ -1,37 +1,54 @@
-services:
-  # Always run with `docker compose run --rm` so nothing persists:
-  #   preview (default): docker compose run --rm --service-ports builder
-  #     then open http://127.0.0.1:8000 and print from the browser
-  #   export:  docker compose run --rm -v E:/:/export builder --export /export
-  builder:
-    build:
-      context: ./
-    stdin_open: true
-    tty: true
+# Settings shared by the preview and build services
+x-packet: &packet
+  build:
+    context: ./
+  image: homelab-documenter
+  # Interactive, for the Bitwarden master password prompt
+  stdin_open: true
+  tty: true
+  environment:
     # Bitwarden API key, read from the gitignored .env (see .env.example).
-    environment:
-      BW_CLIENTID: ${BW_CLIENTID:-}
-      BW_CLIENTSECRET: ${BW_CLIENTSECRET:-}
-      # Optional; overrides log_level in config.json (default INFO)
-      LOG_LEVEL: ${LOG_LEVEL:-}
-      # Optional; plugins to skip, e.g. 500,100 (see .env.example)
-      SKIP_PLUGINS: ${SKIP_PLUGINS:-}
-      # Time zone for the generation stamp, e.g. America/New_York (default UTC)
-      TZ: ${TZ:-}
-      # The page is generated in memory (tmpfs below), never on disk
-      BUILD_DIR: /app/build
-      # Listen on all interfaces inside the container; the port is only
-      # published on the host's 127.0.0.1
-      PREVIEW_HOST: 0.0.0.0
+    BW_CLIENTID: ${BW_CLIENTID:-}
+    BW_CLIENTSECRET: ${BW_CLIENTSECRET:-}
+    # Optional; overrides log_level in config.json (default INFO)
+    LOG_LEVEL: ${LOG_LEVEL:-}
+    # Optional; plugins to skip, e.g. 500,100 (see .env.example)
+    SKIP_PLUGINS: ${SKIP_PLUGINS:-}
+    # Time zone for the generation stamp, e.g. America/New_York (default UTC)
+    TZ: ${TZ:-}
+    # The page is generated in memory (tmpfs below), never on disk
+    BUILD_DIR: /app/build
+    # Preview listens on all interfaces inside the container; the port is
+    # only published on the host's 127.0.0.1
+    PREVIEW_HOST: 0.0.0.0
+  tmpfs:
+    - /app/build
+  volumes:
+    - './conf/:/app/conf/'
+    - './input/:/app/input/'
+    # Extra files shipped with the page (e.g. stylesheets); read-only
+    - './output/:/app/output/:ro'
+
+# Always use `docker compose run --rm` so no container is left behind.
+services:
+  # Generate the packet and serve it until Ctrl-C:
+  #   docker compose run --rm --service-ports preview
+  # then open http://127.0.0.1:8000 and print from the browser.
+  preview:
+    <<: *packet
+    command: ['--preview']
     ports:
       - '127.0.0.1:8000:8000'
-    tmpfs:
-      - /app/build
-    volumes:
-      - './conf/:/app/conf/'
-      - './input/:/app/input/'
-      # Extra files shipped with the page (e.g. stylesheets); read-only
-      - './output/:/app/output/:ro'
+
+  # Generate the packet and copy it, plus the files in output/, to the
+  # folder mounted at /export (e.g. a USB stick):
+  #   docker compose run --rm build
+  # /export has no mount here on purpose: add one in
+  # docker-compose.override.yml (see the .example). Without it the run
+  # stops with an error instead of writing into the container.
+  build:
+    <<: *packet
+    command: ['--export', '/export', '--require-mount']
 
   # Test suite: `docker compose run --rm test` (extra args go to pytest).
   # Mounts the working tree, so code changes need no rebuild.

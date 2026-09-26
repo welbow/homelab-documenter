@@ -1,6 +1,6 @@
-# Copy to docker-compose.override.yml (gitignored) to point the engine at your
-# content repo. Compose merges it automatically, and these volume entries
-# replace the ./conf, ./input and ./output defaults in docker-compose.yml.
+# Copy to docker-compose.override.yml (gitignored) and adjust the paths.
+# Compose merges it automatically; volume entries here replace the ./conf,
+# ./input and ./output defaults in docker-compose.yml.
 #
 # output/ holds extra files shipped alongside the page (e.g. stylesheets);
 # the page itself is generated in memory and never written there.
@@ -8,9 +8,26 @@
 # Example layout, with both repos cloned side by side:
 #   homelab-documenter/            <- this repo (the engine)
 #   my-homelab-content/            <- your content: conf/, input/, output/
+
+# Your content repo, for both services
+x-content: &content
+  - '../my-homelab-content/conf/:/app/conf/'
+  - '../my-homelab-content/input/:/app/input/'
+  - '../my-homelab-content/output/:/app/output/:ro'
+
 services:
-  builder:
+  preview:
+    volumes: *content
+
+  # The same content volumes, listed again (YAML can't add to an anchored
+  # list), plus the export folder
+  build:
     volumes:
       - '../my-homelab-content/conf/:/app/conf/'
       - '../my-homelab-content/input/:/app/input/'
       - '../my-homelab-content/output/:/app/output/:ro'
+      # Where the exported packet goes, e.g. a USB stick. Required: build
+      # stops with an error if nothing is mounted at /export.
+      #   Windows (Docker Desktop):  'E:/:/export'
+      #   Linux:                     '/media/you/USBSTICK:/export'
+      - 'E:/:/export'
