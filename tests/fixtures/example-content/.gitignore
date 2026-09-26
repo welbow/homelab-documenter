@@ -1,0 +1,3 @@
+# Generated packets hold every password in plain text; they should only
+# ever be written by `build` to your export folder, never kept here
+output/*.html

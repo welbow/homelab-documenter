@@ -1,0 +1,55 @@
+{
+    "log_level": "INFO",
+    "plugins": {
+        "StaticFile": {
+            "enabled": 1,
+            "files": [
+                {"seq_number": "002", "title": "", "file": "confidential.html", "hide_surround": 1},
+                {"seq_number": "010", "title": "Start here", "file": "start-here.html"},
+                {"seq_number": "020", "title": "Getting into the file server", "file": "file-server.html"},
+                {"seq_number": "030", "title": "Network notes", "file": "network-notes.txt"}
+            ]
+        },
+        "HostOverrides": {
+            "enabled": 1
+        },
+        "NmapPingScan": {
+            "enabled": 0,
+            "subnets": [
+                "192.0.2.0/24"
+            ]
+        },
+        "BitwardenPasswords": {
+            "enabled": 0,
+            "server_url": "https://vault.example.com",
+            "queries": [
+                {
+                    "title": "Appendix B - Passwords",
+                    "header": "Every item in the vault",
+                    "seq_number": "960"
+                }
+            ]
+        },
+        "OutputHostInfo": {
+            "enabled": 1,
+            "title": "Appendix A - Devices",
+            "header": "Devices on the network, and what to do with them",
+            "seq_number": "950"
+        },
+        "OutputCredInfo": {
+            "enabled": 1
+        },
+        "TableOfContents": {
+            "enabled": 1,
+            "seq_number": "005",
+            "title": "Contents"
+        },
+        "HTMLOutput": {
+            "enabled": 1,
+            "outputfile": "homelab-packet-{date}.html",
+            "stylesheets": [
+                "standard.css"
+            ]
+        }
+    }
+}

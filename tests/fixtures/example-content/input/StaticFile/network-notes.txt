@@ -1,0 +1,6 @@
+Plain-text pages are shown exactly as written, like this one.
+
+Internet provider:  Example Broadband, support 555-0100 (account number in
+                    the passwords appendix)
+Router:             192.0.2.1, in the hall cupboard
+Wi-Fi:              "Example-Home" (password in the passwords appendix)

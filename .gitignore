@@ -1,7 +1,7 @@
 # Repository-specific files
-input/
-output/
-conf/config.json
+/input/
+/output/
+/conf/config.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -138,4 +138,4 @@ bin/
 docker-compose.override.yml
 
 # Encrypted credentials of the engine's own default content dir
-secrets/
+/secrets/

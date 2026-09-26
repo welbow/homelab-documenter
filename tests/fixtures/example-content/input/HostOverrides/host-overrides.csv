@@ -1,0 +1,4 @@
+ip,name,type,notes
+192.0.2.1,Router,router,Internet comes through here. Restart it first if the internet stops working.
+192.0.2.10,File server,server,Family photos and documents. Copy them off before switching it off.
+192.0.2.20,Living room TV box,IoT,Safe to replace or throw out.
