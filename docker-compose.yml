@@ -34,9 +34,11 @@ services:
   # Generate the packet and serve it until Ctrl-C:
   #   docker compose run --rm --service-ports preview
   # then open http://127.0.0.1:8000 and print from the browser.
+  # The service's options are in its entrypoint, so extra options given
+  # to `docker compose run` (e.g. --skip 500, --password-stdin) add to them.
   preview:
     <<: *packet
-    command: ['--preview']
+    entrypoint: ['/app/entrypoint.sh', '--preview']
     ports:
       - '127.0.0.1:8000:8000'
 
@@ -46,9 +48,12 @@ services:
   # /export has no mount here on purpose: add one in
   # docker-compose.override.yml (see the .example). Without it the run
   # stops with an error instead of writing into the container.
+  #
+  # Unattended, with the master password from Windows Credential Manager:
+  #   powershell -File scripts\bw-password.ps1 | docker compose run --rm -T build --password-stdin
   build:
     <<: *packet
-    command: ['--export', '/export', '--require-mount']
+    entrypoint: ['/app/entrypoint.sh', '--export', '/export', '--require-mount']
 
   # Test suite: `docker compose run --rm test` (extra args go to pytest).
   # Mounts the working tree, so code changes need no rebuild.

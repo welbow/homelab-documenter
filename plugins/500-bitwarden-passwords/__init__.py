@@ -2,8 +2,10 @@ global logging
 import logging
 import os
 import os.path
-import bitwarden_keyring as bwkr
 import json
+import shutil
+import subprocess
+import sys
 
 import vars
 from Plugin import Plugin
@@ -16,24 +18,121 @@ ITEM_TYPES = {
     5: 'SSH Key'
 }
 
+# Where the bw CLI keeps its login and cached (encrypted) vault
+BW_DATA_DIR = os.path.expanduser('~/.config/Bitwarden CLI')
+
+# The master password as a Docker secret, if one is mounted (see
+# docker-compose.override.yml.example)
+PASSWORD_SECRET = '/run/secrets/bw_master_password'
+
 class BitwardenPasswords (Plugin):
     def __init__(self):
         super().__init__()
+        self._session = None
 
-    def _bw(self, *args, **kwargs):
-        # A failing bw call raises ValueError chained to a
-        # CalledProcessError whose command line holds `--session <token>`;
-        # drop that chain so a traceback can't print the session token.
-        try:
-            return bwkr.bw(*args, **kwargs)
-        except ValueError as exc:
+    def _bw(self, *args, interactive=False):
+        """Run the bw CLI and return its output. The session is passed in
+        the environment (BW_SESSION), never on the command line, so it
+        can't show up in the process list or an error message. With
+        interactive, bw may prompt on the terminal (master password)."""
+        env = dict(os.environ)
+        if self._session:
+            env['BW_SESSION'] = self._session
+        result = subprocess.run(
+            ['bw'] + list(args), env=env, text=True,
+            stdout=subprocess.PIPE,
+            stderr=None if interactive else subprocess.PIPE)
+        if result.returncode != 0:
+            error = (result.stderr or result.stdout or '').strip()
             raise RuntimeError('bw {0} failed: {1}'.format(
-                args[0], exc)) from None
-    
+                args[0], error or 'exit code {0}'.format(result.returncode)))
+        return result.stdout
+
+    def _unlock(self):
+        """Unlock the vault. The master password comes, in order, from
+        --password-stdin (held in vars.bw_password), a Docker secret file,
+        or a prompt on the terminal. It never goes in the environment or
+        on a command line."""
+        if vars.bw_password:
+            self._logger.info('Unlocking vault with the password from stdin')
+            # bw reads it from a file: a private one in the build dir
+            # (a tmpfs in the container), deleted straight away
+            os.makedirs(vars.build_dir, exist_ok=True)
+            path = os.path.join(vars.build_dir, '.bw-password')
+            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            try:
+                with os.fdopen(fd, 'w', encoding='utf-8') as f:
+                    f.write(vars.bw_password)
+                return self._bw('unlock', '--passwordfile', path,
+                                '--raw').strip()
+            finally:
+                os.remove(path)
+                vars.bw_password = None
+
+        if os.path.exists(PASSWORD_SECRET):
+            self._logger.info('Unlocking vault with the password in '
+                              '{0}'.format(PASSWORD_SECRET))
+            return self._bw('unlock', '--passwordfile', PASSWORD_SECRET,
+                            '--raw').strip()
+
+        if not sys.stdin.isatty():
+            raise RuntimeError(
+                'The vault is locked and there is no terminal to ask for the '
+                'master password. Use --password-stdin (see '
+                'scripts/bw-password.ps1), a {0} secret, or run with a '
+                'terminal.'.format(PASSWORD_SECRET))
+        self._logger.info('Unlocking vault; enter your master password')
+        return self._bw('unlock', '--raw', interactive=True).strip()
+
+    def _login_and_unlock(self):
+        """Get an unlocked session from whatever state bw is in. Returns
+        True if an existing session (BW_SESSION) is being reused."""
+        status = json.loads(self._bw('status'))
+
+        # A session unlocked earlier in this dev shell: reuse it
+        if os.environ.get('BW_SESSION') and status.get('status') == 'unlocked':
+            self._logger.info('Reusing unlocked vault session (BW_SESSION)')
+            self._session = os.environ['BW_SESSION']
+            return True
+
+        server = self._config['server_url']
+        if status.get('status') != 'unauthenticated' and \
+                status.get('serverUrl') not in (None, server):
+            self._logger.info('Logged in to another server; logging out')
+            self._bw('logout')
+            status['status'] = 'unauthenticated'
+
+        if status.get('status') == 'unauthenticated':
+            self._logger.debug('Setting BW server from config')
+            self._bw('config', 'server', server)
+            self._logger.info('Logging in with apikey')
+            self._bw('login', '--apikey')
+
+        self._session = self._unlock()
+        if not self._session:
+            raise RuntimeError('bw unlock returned no session')
+        return False
+
+    def _clean_up(self):
+        """Lock, log out and remove the CLI's data, whatever happened."""
+        for args in (('lock',), ('logout',)):
+            try:
+                self._bw(*args)
+            except (RuntimeError, OSError) as exc:
+                self._logger.debug('Ignoring: {0}'.format(exc))
+        self._session = None
+
+        self._logger.debug('Clearing environment variables')
+        os.environ['BW_CLIENTID'] = ''
+        os.environ['BW_CLIENTSECRET'] = ''
+
+        self._logger.info('Removing the Bitwarden CLI data')
+        shutil.rmtree(BW_DATA_DIR, ignore_errors=True)
+
     def run(self):
         if not self.getConfig():
             return
-        
+
         self._logger.info('Starting Bitwarden queries')
 
         # The API key comes only from the environment (the gitignored .env,
@@ -43,6 +142,10 @@ class BitwardenPasswords (Plugin):
         if 'client_id' in self._config or 'client_secret' in self._config:
             self._logger.warning('client_id/client_secret in config.json are '
                                  'ignored; remove them and use .env instead')
+        if 'logout' in self._config:
+            self._logger.warning('"logout" in config.json is ignored: runs '
+                                 'always log out, except when reusing a '
+                                 'BW_SESSION')
 
         missing = [v for v in ('BW_CLIENTID', 'BW_CLIENTSECRET')
                    if not os.environ.get(v)]
@@ -51,32 +154,33 @@ class BitwardenPasswords (Plugin):
                                'fill in your Bitwarden API key'.format(
                                    ', '.join(missing)))
 
-        self._logger.debug('Setting BW server from config')
-        self._bw('config', 'server', '{0}'.format(self._config['server_url']))
+        reusing = False
+        try:
+            reusing = self._login_and_unlock()
+            self._query()
+        finally:
+            vars.bw_password = None
+            # A reused dev session stays open for the next run in that shell
+            if not reusing:
+                self._clean_up()
 
-        status = json.loads(self._bw('status'))
-        
-        if status['status'] == 'locked':
-            self._logger.info('Logged in already; skipping...')
-        else:
-            self._logger.info('Logging in with apikey')
-            self._bw('login', '--apikey')
+        self._logger.info('Finished Bitwarden queries')
 
-        self._logger.debug('Getting BW session')
-        session = bwkr.get_session(os.environ)
-
+    def _query(self):
         self._logger.info('Syncing BW vault')
-        self._bw("sync", session=session)
+        self._bw('sync')
 
         self._logger.info('Getting BW folders')
-        folders = json.loads(self._bw('list', 'folders', session=session))
+        folders = {f['id']: f['name']
+                   for f in json.loads(self._bw('list', 'folders'))}
 
-        self._logger.info('Runnig BW query')
-        results = json.loads(self._bw("list", "items", session=session))
+        self._logger.info('Running BW query')
+        results = json.loads(self._bw('list', 'items'))
 
         for item in results:
-            folder = next( f for f in folders if f["id"] == item['folderId'] )
-            item['folder_name'] = folder['name']
+            # Items without a (known) folder go under "No Folder"
+            item['folder_name'] = folders.get(item.get('folderId')) \
+                or 'No Folder'
 
         for query in self._config['queries']:
             creds = []
@@ -86,7 +190,7 @@ class BitwardenPasswords (Plugin):
                     if type(query['exclude_folders']) is str:
                         if query['exclude_folders'] == item['folder_name']:
                             continue
-                    
+
                     if type(query['exclude_folders']) is list:
                         if item['folder_name'] in query['exclude_folders']:
                             continue
@@ -95,12 +199,12 @@ class BitwardenPasswords (Plugin):
                     if type(query['include_folders']) is str:
                         if query['include_folders'] != item['folder_name']:
                             continue
-                    
+
                     if type(query['include_folders']) is list:
                         if item['folder_name'] not in query['include_folders']:
                             continue
 
-                o = { 
+                o = {
                     'folder': item['folder_name'],
                     # Don't crash on item types newer Bitwarden releases add
                     'type': ITEM_TYPES.get(item['type'],
@@ -120,10 +224,10 @@ class BitwardenPasswords (Plugin):
                         'password': item['login'].get('password','None'),
                         'mfa': item['login'].get('totp', None) is not None
                     })
-                
+
                 creds.append(o)
-                
-            key = '{1}-{0}'.format(query.get('title'), 
+
+            key = '{1}-{0}'.format(query.get('title'),
                                     query.get('seq_number'))
 
             vars.creds[key] = {
@@ -132,21 +236,6 @@ class BitwardenPasswords (Plugin):
                 'header': query.get('header'),
                 'items': creds
             }
-
-        if self._config.get('logout', 1) == 1:
-            self._logger.debug('Logging out')
-            self._bw('logout')
-
-            self._logger.debug('Clearing environment variables')
-            os.environ["BW_CLIENTID"] = ''
-            os.environ["BW_CLIENTSECRET"] = ''
-
-            self._logger.info('Cleaning up cached vault data')
-            vaultfile = os.path.expanduser('~/.config/Bitwarden CLI/data.json')
-            if os.path.exists(vaultfile):
-                os.remove(vaultfile)
-
-        self._logger.info('Finished Bitwarden queries')
 
 def getPlugin():
     return BitwardenPasswords()

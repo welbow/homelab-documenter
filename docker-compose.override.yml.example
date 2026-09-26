@@ -39,3 +39,15 @@ services:
       #   Windows (Docker Desktop):  'E:/:/export'
       #   Linux:                     '/media/you/USBSTICK:/export'
       - 'E:/:/export'
+    # Optional: unlock the vault from the secret below instead of prompting
+    # secrets: [bw_master_password]
+
+# Optional: the Bitwarden master password as a Docker secret, so runs don't
+# prompt for it. The file must be outside both repos, and it holds the
+# password in plain text, protected only by file permissions. The
+# encrypted alternative is scripts/bw-password.ps1 with --password-stdin
+# (see docker-compose.yml). Add the secrets line to each service that
+# should use it.
+# secrets:
+#   bw_master_password:
+#     file: C:/Users/you/.secrets/bw_master_password

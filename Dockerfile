@@ -36,6 +36,9 @@ RUN apt-get update \
  && pip install --no-cache-dir -r requirements.txt
 
 COPY --from=bw /usr/local/bin/bw /app/bin/bw
+# On the PATH for every process, including a dev shell (see #6: unlock
+# once with `export BW_SESSION=$(bw unlock --raw)`, then re-run)
+ENV PATH="/app/bin:${PATH}"
 
 COPY . .
 
