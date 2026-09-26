@@ -50,6 +50,17 @@ keep_alive = False
 cleanups = []
 
 
+def section_keys():
+    """The keys of output in packet order. Keys are "<seq_number>-<keyname>";
+    they sort by seq_number as a number (so 5 comes before 10, and "005"
+    and 5 are the same place), then by key. A seq_number that isn't a
+    number sorts after all the numbered ones."""
+    def order(key):
+        seq = key.split('-', 1)[0]
+        return (0, int(seq), key) if seq.isdigit() else (1, 0, key)
+    return sorted(output, key=order)
+
+
 def reset(new_data_dir=os.curdir):
     """Clear the state plugins share, so one run can't leak into the next."""
     global data_dir, build_dir, page, config, hosts, creds, output, skipped

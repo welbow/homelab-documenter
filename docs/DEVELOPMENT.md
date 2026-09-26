@@ -61,7 +61,8 @@ number by default), and the packet shows sections in that order. It's
 independent of when the plugin runs: the table of contents runs at 950 but
 usually sits near the top (`"005"`).
 
-Sorting is by text, so use three digits everywhere. A typical layout:
+Sorting is numeric (`5` before `10`; non-numbers last, with a warning).
+Three digits are a readable convention. A typical layout:
 
 | seq_number | Section |
 |---|---|

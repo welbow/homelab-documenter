@@ -18,7 +18,7 @@ class TableOfContents (Plugin):
         self._logger.info('Generating table of contents')
 
         with ol() as o:
-            for itemkey in sorted(vars.output.keys()):
+            for itemkey in vars.section_keys():
                 if not vars.output[itemkey].get('hide_surround', False):
                     li(a(vars.output[itemkey]['title'],href='#{0}'.format(itemkey)))
         

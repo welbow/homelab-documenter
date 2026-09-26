@@ -34,8 +34,8 @@ secrets/                encrypted credentials, created by the engine's
 ```
 
 Each plugin's settings and input formats are described in the engine's
-`plugins/*/README.md`. Sections appear in `seq_number` order; use three
-digits (`"005"`, `"010"`, `"950"`).
+`plugins/*/README.md`. Sections appear in `seq_number` order (as numbers,
+so 5 comes before 10).
 
 To turn on a plugin that needs credentials (for example a password
 manager plugin), set `"enabled": 1` in its section, fill in its settings,

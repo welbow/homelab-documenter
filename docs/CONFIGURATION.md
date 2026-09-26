@@ -19,8 +19,11 @@ the plugin's class name. A plugin runs only if its section exists and has
 ```
 
 **Section order.** Every section has a `seq_number`, and the packet is
-sorted by it. Sorting is by text, so use three-digit numbers throughout
-(`"005"`, `"010"`, `"950"`); a mix like `5` and `10` sorts out of order.
+sorted by it as a number: `5` comes before `10`, and `"005"`, `5` and
+`"5"` are the same position. Numbers or strings both work. Three digits
+(`"005"`, `"010"`, `"950"`) keep config.json easy to scan, but they're a
+style choice, not a requirement. A `seq_number` that isn't a number sorts
+after all the numbered sections, with a warning.
 
 **Environment** (`.env`, all optional):
 

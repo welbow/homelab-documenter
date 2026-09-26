@@ -27,7 +27,7 @@ usernames, passwords and URLs, for the credentials appendix.
 |---|---|
 | `title` | Section heading. |
 | `header` | Line shown above the table. |
-| `seq_number` | Position in the packet (three digits). |
+| `seq_number` | Position in the packet (a number). |
 | `include_folders` | Only items in this folder, or any of these folders (string or list). |
 | `exclude_folders` | Leave out items in this folder / these folders. |
 

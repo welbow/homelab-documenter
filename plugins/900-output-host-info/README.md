@@ -17,7 +17,7 @@ Renders the host table from everything the data plugins found
 |---|---|---|
 | `title` | yes | Section heading. |
 | `header` | yes | Line shown above the table. |
-| `seq_number` | yes | Position in the packet (three digits). |
+| `seq_number` | yes | Position in the packet (a number). |
 
 **Columns**, in this order, each shown only if some host has a value: Name,
 Hostname, IP Address, Type (always shown, "Unknown" when no source knows

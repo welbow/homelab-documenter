@@ -65,7 +65,7 @@ class HTMLOutput (Plugin):
                 h1('Homelab Documentation', name="top",_class='title')
                 p(stamp_text, _class='stamp')
                 
-                for itemkey in sorted(vars.output.keys()):
+                for itemkey in vars.section_keys():
                     item = vars.output[itemkey]
                     
                     if item.get('hide_surround', False):

@@ -39,6 +39,12 @@ class Plugin:
         if keyname is None:
             keyname = '-'.join(module_key.split('-')[1:])
 
+        seq = str(seq).strip()
+        if not seq.isdigit():
+            self._logger.warning(
+                'seq_number {0!r} for section {1!r} is not a number; it goes '
+                'after the numbered sections'.format(seq, title))
+
         new_module_key = '{0}-{1}'.format(seq, keyname)
 
         new_output = {

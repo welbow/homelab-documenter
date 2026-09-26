@@ -18,7 +18,7 @@ Where the table appears in the packet is set separately, by its
 | Key | Required | Meaning |
 |---|---|---|
 | `title` | yes | Section heading. |
-| `seq_number` | yes | Its own position, usually near the top (three digits). |
+| `seq_number` | yes | Its own position, usually near the top. |
 
 Sections added with `hide_surround` (e.g. a confidentiality banner) are
 left out.
