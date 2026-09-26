@@ -11,5 +11,12 @@
       ],
       "extractVersionTemplate": "{{#if extractVersion}}{{{extractVersion}}}{{else}}^v?(?<version>.+)${{/if}}"
     }
+  ],
+  "packageRules": [
+    {
+      "description": "The bw CLI must not be newer than the Bitwarden server (#24); bumps wait for approval on the dependency dashboard",
+      "matchDepNames": ["bitwarden/clients"],
+      "dependencyDashboardApproval": true
+    }
   ]
 }

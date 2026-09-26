@@ -1,9 +1,11 @@
 # --- Stage 1: fetch and verify the Bitwarden CLI --------------------------
 FROM debian:trixie-slim AS bw
 
-# Pinned release; Renovate bumps it (see renovate.json).
+# Pinned release; Renovate bumps it (see renovate.json). Keep it no newer
+# than the Bitwarden server: 2026.9.0 added a key-id backfill on unlock
+# that a 2026.2 server answers with 404, so unlock fails (#24).
 # renovate: datasource=github-releases depName=bitwarden/clients extractVersion=^cli-v(?<version>.+)$
-ARG BW_VERSION=2026.9.0
+ARG BW_VERSION=2026.8.0
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates curl jq unzip \
