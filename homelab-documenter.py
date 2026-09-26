@@ -31,6 +31,9 @@ if __name__ == '__main__':
                              'repeated); added to SKIP_PLUGINS')
     args = parser.parse_args()
 
+    # A preview can rebuild, so sessions stay open until it ends
+    vars.keep_alive = not args.export
+
     status = pipeline.main(skip=args.skip)
     if status != 0 or vars.page is None:
         sys.exit(status or 1)
@@ -42,6 +45,16 @@ if __name__ == '__main__':
                              require_mount=args.require_mount)
         sys.exit(0 if ok else 2)
 
-    delivery.preview(vars.page, extras_dir,
-                     host=os.environ.get('PREVIEW_HOST', '127.0.0.1'),
-                     port=int(os.environ.get('PREVIEW_PORT', '8000')))
+    def rebuild():
+        if pipeline.main(skip=args.skip) != 0 or vars.page is None:
+            raise RuntimeError('no page was generated (see the preview log)')
+        return vars.page
+
+    try:
+        delivery.preview(vars.page, extras_dir,
+                         host=os.environ.get('PREVIEW_HOST', '127.0.0.1'),
+                         port=int(os.environ.get('PREVIEW_PORT', '8000')),
+                         rebuild=rebuild)
+    finally:
+        for cleanup in vars.cleanups:
+            cleanup()

@@ -22,6 +22,9 @@ ITEM_TYPES = {
 # Where the bw CLI keeps its login and cached (encrypted) vault
 BW_DATA_DIR = os.path.expanduser('~/.config/Bitwarden CLI')
 
+# The session kept open between preview rebuilds (vars.keep_alive, #23)
+_held = {'session': None}
+
 class BitwardenPasswords (Plugin):
     def __init__(self):
         super().__init__()
@@ -85,7 +88,18 @@ class BitwardenPasswords (Plugin):
 
     def _login_and_unlock(self):
         """Get an unlocked session from whatever state bw is in. Returns
-        True if an existing session (BW_SESSION) is being reused."""
+        True if the session stays open after the run: an existing one
+        (BW_SESSION in a dev shell, or one kept from an earlier preview
+        run), or a new one while a preview may rebuild."""
+        # Kept from an earlier run of this preview: reuse it if still valid
+        if _held['session']:
+            self._session = _held['session']
+            if json.loads(self._bw('status')).get('status') == 'unlocked':
+                self._logger.info('Reusing the vault session from the '
+                                  'previous run')
+                return True
+            self._session = _held['session'] = None
+
         status = json.loads(self._bw('status'))
 
         # A session unlocked earlier in this dev shell: reuse it
@@ -110,6 +124,13 @@ class BitwardenPasswords (Plugin):
         self._session = self._unlock()
         if not self._session:
             raise RuntimeError('bw unlock returned no session')
+
+        if vars.keep_alive:
+            # Keep it for the preview's rebuilds; lock and log out when the
+            # preview ends
+            _held['session'] = self._session
+            vars.cleanups.append(release)
+            return True
         return False
 
     def _clean_up(self):
@@ -246,6 +267,15 @@ class BitwardenPasswords (Plugin):
                 'header': query.get('header'),
                 'items': creds
             }
+
+def release():
+    """Lock, log out and wipe a session kept open for a preview."""
+    if _held['session']:
+        plugin = BitwardenPasswords()
+        plugin._session = _held['session']
+        _held['session'] = None
+        plugin._clean_up()
+
 
 def getPlugin():
     return BitwardenPasswords()

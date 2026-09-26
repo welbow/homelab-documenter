@@ -43,6 +43,12 @@ skipped = []
 # When and from what this run was generated (see stamp.py)
 stamp = {}
 
+# Kept across runs (not cleared by reset): True while a preview may
+# rebuild, so plugins can keep sessions (e.g. the unlocked vault) open
+# between runs, registering in cleanups what to do when the preview ends
+keep_alive = False
+cleanups = []
+
 
 def reset(new_data_dir=os.curdir):
     """Clear the state plugins share, so one run can't leak into the next."""

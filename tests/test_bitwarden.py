@@ -57,6 +57,9 @@ def bw_plugin(monkeypatch, tmp_path):
     test fails if the plugin gets as far as calling it."""
     vars.config = {'plugins': {'BitwardenPasswords': {
         'enabled': 1, 'server_url': SERVER, 'queries': []}}}
+    monkeypatch.setattr(vars, 'keep_alive', False)
+    monkeypatch.setattr(vars, 'cleanups', [])
+    monkeypatch.setitem(bwmod._held, 'session', None)
     monkeypatch.setattr(
         bwmod.subprocess, 'run',
         lambda *a, **k: pytest.fail('bw CLI must not be called: {0}'.format(a)))
@@ -318,3 +321,60 @@ def test_undecryptable_credential_stops_the_run(bw_plugin, monkeypatch,
 
     with pytest.raises(RuntimeError, match='has no key'):
         bw_plugin.run()
+
+
+def test_preview_keeps_the_session_between_runs_until_released(
+        bw_plugin, with_key, monkeypatch, tmp_path):
+    vars.keep_alive = True
+    credentials.put('bw_master_password', 'pw')
+    (tmp_path / 'bw-data').mkdir()
+    bw = fake(monkeypatch, status='locked')
+
+    bw_plugin.run()
+
+    # unlocked, but not locked or logged out: the preview may rebuild
+    assert 'lock' not in bw.commands() and 'logout' not in bw.commands()
+    assert bwmod._held['session'] == 'SESSION123'
+    assert vars.cleanups == [bwmod.release]
+
+    # the next run (a rebuild) reuses it: no login, no unlock
+    bw.status = 'unlocked'
+    bw.calls.clear()
+    bwmod.getPlugin().run()
+    assert 'unlock' not in ' '.join(bw.commands())
+    assert bw.commands()[0] == 'status'
+    assert bw.calls[0][1] == 'SESSION123'
+
+    # when the preview ends
+    bw.calls.clear()
+    for cleanup in vars.cleanups:
+        cleanup()
+    assert bw.commands() == ['lock', 'logout']
+    assert bwmod._held['session'] is None
+    assert not (tmp_path / 'bw-data').exists()
+
+
+def test_expired_kept_session_unlocks_again(bw_plugin, with_key,
+                                            monkeypatch):
+    vars.keep_alive = True
+    bwmod._held['session'] = 'EXPIRED'
+    credentials.put('bw_master_password', 'pw')
+    bw = fake(monkeypatch, status='locked')
+
+    bw_plugin.run()
+
+    assert bw.commands()[:2] == ['status', 'status']
+    assert any(c.startswith('unlock') for c in bw.commands())
+    assert bwmod._held['session'] == 'SESSION123'
+
+
+def test_export_runs_never_keep_the_session(bw_plugin, with_key,
+                                            monkeypatch):
+    bw = fake(monkeypatch, status='locked')
+    credentials.put('bw_master_password', 'pw')
+
+    bw_plugin.run()
+
+    assert bw.commands()[-2:] == ['lock', 'logout']
+    assert bwmod._held['session'] is None
+    assert vars.cleanups == []
