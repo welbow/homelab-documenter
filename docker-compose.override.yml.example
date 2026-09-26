@@ -15,13 +15,21 @@ x-content: &content
   - '../my-homelab-content/input/:/app/input/'
   - '../my-homelab-content/output/:/app/output/:ro'
 
+# Your LAN's DNS servers, so the container's resolver knows the LAN's
+# names (Docker's default resolver doesn't); nmap uses it for hostnames.
+# On Windows: Get-DnsClientServerAddress. Leave out to skip hostnames.
+x-dns: &dns
+  - 192.168.1.53
+
 services:
   preview:
     volumes: *content
+    dns: *dns
 
   # The same content volumes, listed again (YAML can't add to an anchored
   # list), plus the export folder
   build:
+    dns: *dns
     volumes:
       - '../my-homelab-content/conf/:/app/conf/'
       - '../my-homelab-content/input/:/app/input/'

@@ -7,10 +7,21 @@ build_dir = os.path.join(os.curdir, 'build')
 # The generated page, once HTMLOutput has written it
 page = None
 config = {}
+# Hosts by IP address. Data plugins add to it with Plugin.addHost, which
+# merges what several sources know about the same host.
 hosts = {}
+# Columns of the hosts table, in order; a column no host has data for is
+# left out
 hosts_keys = {
     'Hostname': 'hostname',
-    'IP Address':  'ipaddress'
+    'IP Address':  'ipaddress',
+    # What kind of device (e.g. router, switch, VM); nmap can't tell, so
+    # this fills in from other sources
+    'Type': 'type',
+    'Subnet': 'subnet',
+    'MAC Address': 'mac',
+    'Vendor': 'vendor',
+    'Seen by': 'sources'
 }
 creds = {}
 creds_keys = {

@@ -51,6 +51,28 @@ class Plugin:
 
         vars.output[new_module_key] = new_output
 
+    def addHost(self, ip, source=None, **fields):
+        """Add what this plugin knows about the host at ip to vars.hosts.
+        Several plugins can report the same host: each is listed in its
+        "sources", blank values never replace real ones, and when two
+        disagree the first (lowest-numbered plugin) wins and the
+        disagreement is logged."""
+        source = source or type(self).__name__
+        host = vars.hosts.setdefault(ip, {'ipaddress': ip, 'sources': []})
+        if source not in host['sources']:
+            host['sources'].append(source)
+
+        for key, value in fields.items():
+            if value in (None, ''):
+                continue
+            current = host.get(key)
+            if current in (None, ''):
+                host[key] = value
+            elif current != value:
+                self._logger.info(
+                    'Host {0}: keeping {1} {2!r}, {3} reported {4!r}'.format(
+                        ip, key, current, source, value))
+
     def getInputFilePath(self,file):
         return os.path.join(vars.data_dir, 'input',
             type(self).__name__, file)
