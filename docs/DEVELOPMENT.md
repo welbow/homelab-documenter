@@ -60,7 +60,8 @@ folder as `/app` (the commented example in
   and the page from the last good run stays; fix the code and rebuild.
 - Kept sessions (e.g. an unlocked vault) and cached results survive a
   reload. The preview server itself isn't reloaded; restart for changes to
-  `delivery.py` or `homelab-documenter.py`.
+  `delivery.py` or `homelab-documenter.py`, and to `vars.py` (the shared
+  state, e.g. a new device table column).
 - Without the mount, **Reload code first** is greyed out, with a tooltip
   explaining why.
 - The mount is read-only, so the container can't change your checkout.

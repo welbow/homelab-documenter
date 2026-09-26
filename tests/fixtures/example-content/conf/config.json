@@ -19,6 +19,12 @@
                 "192.0.2.0/24"
             ]
         },
+        "OPNsense": {
+            "enabled": 0,
+            "url": "https://192.0.2.1",
+            "ca_file": "opnsense-ca.pem",
+            "network_section": {"title": "Networks", "seq_number": "040", "header": "The networks the firewall routes"}
+        },
         "BitwardenPasswords": {
             "enabled": 0,
             "server_url": "https://vault.example.com",

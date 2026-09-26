@@ -21,6 +21,8 @@ hosts_keys = {
     # this fills in from other sources
     'Type': 'type',
     'Subnet': 'subnet',
+    # Firewall interface or VLAN the host is on (OPNsense)
+    'Interface': 'interface',
     'MAC Address': 'mac',
     'Vendor': 'vendor',
     'Seen by': 'sources',
