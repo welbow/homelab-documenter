@@ -13,6 +13,8 @@ hosts = {}
 # Columns of the hosts table, in order; a column no host has data for is
 # left out
 hosts_keys = {
+    # Friendly name, from the host overrides file
+    'Name': 'name',
     'Hostname': 'hostname',
     'IP Address':  'ipaddress',
     # What kind of device (e.g. router, switch, VM); nmap can't tell, so
@@ -21,7 +23,8 @@ hosts_keys = {
     'Subnet': 'subnet',
     'MAC Address': 'mac',
     'Vendor': 'vendor',
-    'Seen by': 'sources'
+    'Seen by': 'sources',
+    'Notes': 'notes'
 }
 creds = {}
 creds_keys = {
