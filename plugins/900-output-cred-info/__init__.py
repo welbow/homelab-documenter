@@ -23,19 +23,21 @@ class OutputCredInfo (Plugin):
             with div() as d:
                 p(q['header'])
 
+                # thead: the header row repeats on every printed page
                 with table():
-                    with tr():
+                    with thead(), tr():
                         for key in vars.creds_keys.keys():
                             th(key)
 
-                    for cred in q['items']:
-                        with tr():
-                            for key in vars.creds_keys.keys():
-                                lookup_key = vars.creds_keys[key]
-                                v = cred.get(lookup_key,'None')
-                                if v is None:
-                                    v = 'None'
-                                td(v)
+                    with tbody():
+                        for cred in q['items']:
+                            with tr():
+                                for key in vars.creds_keys.keys():
+                                    lookup_key = vars.creds_keys[key]
+                                    v = cred.get(lookup_key,'None')
+                                    if v is None:
+                                        v = 'None'
+                                    td(v)
             
             self.addOutput(
                 output=d,

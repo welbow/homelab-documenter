@@ -56,7 +56,10 @@ class Plugin:
             type(self).__name__, file)
 
     def makeOutputFilePath(self, filename):
-        return os.path.join(vars.data_dir, 'output', filename)
+        # Generated files go to the build dir, never to output/ (which
+        # holds the extra files shipped alongside the page)
+        os.makedirs(vars.build_dir, exist_ok=True)
+        return os.path.join(vars.build_dir, filename)
 
     def __init__(self):
         # Plugins are created before the config is loaded, so config is

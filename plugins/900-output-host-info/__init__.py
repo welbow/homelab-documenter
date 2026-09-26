@@ -20,16 +20,18 @@ class OutputHostInfo (Plugin):
         with div() as d:
             p(self._config['header'])
 
+            # thead: the header row repeats on every printed page
             with table():
-                with tr():
+                with thead(), tr():
                     for key in vars.hosts_keys.keys():
                         th(key)
 
-                for host in vars.hosts:
-                    with tr():
-                        for key in vars.hosts_keys.keys():
-                            lookup_key = vars.hosts_keys[key]
-                            td(vars.hosts[host][lookup_key])
+                with tbody():
+                    for host in vars.hosts:
+                        with tr():
+                            for key in vars.hosts_keys.keys():
+                                lookup_key = vars.hosts_keys[key]
+                                td(vars.hosts[host][lookup_key])
         
         self.addOutput(
             output=d,

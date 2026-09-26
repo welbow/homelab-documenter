@@ -9,17 +9,24 @@ import stamp
 import vars
 from Plugin import Plugin
 
-# Inline, so the stamp shows even when the file is opened without its
-# stylesheets (e.g. from a USB stick). In print, a page-margin box puts it
-# at the bottom of every page, outside the content so it can't overlap
-# (Chrome/Edge; other browsers still print the banner and the last line).
-STAMP_CSS = """
+# Inline, so it works even when the page is opened without its
+# stylesheets. In print: each section starts a new page, "Return to top"
+# links are hidden, table rows don't split and header rows repeat, and a
+# page-margin box puts the stamp at the bottom of every page, outside the
+# content so it can't overlap (Chrome/Edge; other browsers still print the
+# banner and the last line). Paper size is left to the print dialog.
+PAGE_CSS = """
 .stamp {{ font-size: 0.9em; color: #555; }}
 @media print {{
   @page {{
     margin: 1.5cm 1.5cm 2cm;
     @bottom-center {{ content: "{0}"; font-size: 8pt; color: #555; }}
   }}
+  .section {{ break-before: page; }}
+  .top-link {{ display: none; }}
+  tr {{ break-inside: avoid; }}
+  thead {{ display: table-header-group; }}
+  h1, h2, h3 {{ break-after: avoid; }}
 }}
 """
 
@@ -46,7 +53,7 @@ class HTMLOutput (Plugin):
         with document(title='Homelab Documentation') as doc:
             with doc.head:
                 # raw: dominate would HTML-escape the quotes and break the CSS
-                style(raw(STAMP_CSS.format(css_string(stamp_text))))
+                style(raw(PAGE_CSS.format(css_string(stamp_text))))
                 if 'stylesheets' in self._config.keys():
                     for ss in self._config['stylesheets']:
                         link(rel='stylesheet', href=ss)
@@ -61,14 +68,16 @@ class HTMLOutput (Plugin):
                 for itemkey in sorted(vars.output.keys()):
                     item = vars.output[itemkey]
                     
-                    if not item.get('hide_surround', False):
+                    if item.get('hide_surround', False):
+                        div(item['output'])
+                        continue
+
+                    with div(_class='section'):
                         a(name=itemkey)
                         h1(item['title'])
-
-                    div(item['output'])
-
-                    if not item.get('hide_surround', False):
-                        div(p(a('Return to top',href='#top')))
+                        div(item['output'])
+                        div(p(a('Return to top',href='#top')),
+                            _class='top-link')
 
                 p(stamp_text, _class='stamp')
 
@@ -80,6 +89,8 @@ class HTMLOutput (Plugin):
         
         with open(outputfilename, 'w') as html_file:
             html_file.write(str(doc))
+
+        vars.page = outputfilename
 
 def getPlugin():
     return HTMLOutput()

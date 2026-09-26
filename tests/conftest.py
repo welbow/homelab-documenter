@@ -73,14 +73,16 @@ class Content:
         with open(os.path.join(self.root, 'conf', 'config.json'), 'w') as f:
             json.dump(self.config, f)
         assert pipeline.main(data_dir=self.root) == 0
-        with open(os.path.join(self.root, 'output', 'output.html')) as f:
+        with open(os.path.join(self.root, 'build', 'output.html')) as f:
             return f.read()
 
 
 @pytest.fixture(autouse=True)
 def no_skipped_plugins(monkeypatch):
-    # A developer's SKIP_PLUGINS must not change what the tests run
+    # A developer's SKIP_PLUGINS or BUILD_DIR must not change what the
+    # tests run or where they write
     monkeypatch.delenv('SKIP_PLUGINS', raising=False)
+    monkeypatch.delenv('BUILD_DIR', raising=False)
 
 
 @pytest.fixture(autouse=True)

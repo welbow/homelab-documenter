@@ -1,4 +1,8 @@
 services:
+  # Always run with `docker compose run --rm` so nothing persists:
+  #   preview (default): docker compose run --rm --service-ports builder
+  #     then open http://127.0.0.1:8000 and print from the browser
+  #   export:  docker compose run --rm -v E:/:/export builder --export /export
   builder:
     build:
       context: ./
@@ -14,10 +18,20 @@ services:
       SKIP_PLUGINS: ${SKIP_PLUGINS:-}
       # Time zone for the generation stamp, e.g. America/New_York (default UTC)
       TZ: ${TZ:-}
+      # The page is generated in memory (tmpfs below), never on disk
+      BUILD_DIR: /app/build
+      # Listen on all interfaces inside the container; the port is only
+      # published on the host's 127.0.0.1
+      PREVIEW_HOST: 0.0.0.0
+    ports:
+      - '127.0.0.1:8000:8000'
+    tmpfs:
+      - /app/build
     volumes:
       - './conf/:/app/conf/'
       - './input/:/app/input/'
-      - './output/:/app/output/'
+      # Extra files shipped with the page (e.g. stylesheets); read-only
+      - './output/:/app/output/:ro'
 
   # Test suite: `docker compose run --rm test` (extra args go to pytest).
   # Mounts the working tree, so code changes need no rebuild.

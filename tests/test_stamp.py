@@ -75,5 +75,5 @@ def test_date_placeholder_in_output_file_name(content):
 
     pipeline.main(data_dir=content.root)
 
-    assert os.listdir(os.path.join(content.root, 'output')) \
+    assert os.listdir(os.path.join(content.root, 'build')) \
         == ['homelab-packet-2026-09-25.html']

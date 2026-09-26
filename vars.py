@@ -1,6 +1,11 @@
 import os
 
 data_dir = os.curdir
+# Where the page is generated: BUILD_DIR (a tmpfs in the container, so
+# credentials never reach the disk), else build/ under data_dir
+build_dir = os.path.join(os.curdir, 'build')
+# The generated page, once HTMLOutput has written it
+page = None
 config = {}
 hosts = {}
 hosts_keys = {
@@ -27,8 +32,10 @@ stamp = {}
 
 def reset(new_data_dir=os.curdir):
     """Clear the state plugins share, so one run can't leak into the next."""
-    global data_dir, config, hosts, creds, output, skipped, stamp
+    global data_dir, build_dir, page, config, hosts, creds, output, skipped, stamp
     data_dir = new_data_dir
+    build_dir = os.environ.get('BUILD_DIR', '').strip() or         os.path.join(data_dir, 'build')
+    page = None
     config = {}
     hosts = {}
     creds = {}
