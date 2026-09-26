@@ -48,6 +48,17 @@ stamp = {}
 # between runs, registering in cleanups what to do when the preview ends
 keep_alive = False
 cleanups = []
+# Sessions plugins keep open during a preview (e.g. {'bitwarden': token});
+# here rather than in the plugin modules so a code reload keeps them
+sessions = {}
+# Each data plugin's results from its last run in this preview, for partial
+# rebuilds (#25): {directory: {'output', 'creds', 'hosts', 'config',
+# 'mtime'}}. Memory only: it can hold passwords.
+plugin_cache = {}
+# While a plugin runs during a preview: the addHost calls it makes
+recording = None
+# What the last run did: {'ran': [...], 'replayed': [...], 'notes': [...]}
+last_run = {}
 
 
 def section_keys():

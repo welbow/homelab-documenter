@@ -9,6 +9,8 @@ docker-compose.override.yml
 conf/
 input/
 output/
+secrets/
+build/
 .git/
 # ...except what stamp.py needs to name the engine's commit (hashes only)
 !.git/HEAD

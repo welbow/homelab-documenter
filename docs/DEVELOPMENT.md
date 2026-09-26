@@ -2,6 +2,7 @@
 
 - [Running the tests](#running-the-tests)
 - [Working on content quickly](#working-on-content-quickly)
+- [Working on the engine with a running preview](#working-on-the-engine-with-a-running-preview)
 - [Plugin numbering](#plugin-numbering)
 - [Section numbering (seq_number)](#section-numbering-seq_number)
 - [Writing a plugin](#writing-a-plugin)
@@ -30,7 +31,8 @@ the fixture too.
 
 ## Working on content quickly
 
-- Use the preview's **Rebuild** button instead of restarting.
+- Use the preview's **Rebuild** button instead of restarting, and untick
+  the slow plugins: they reuse their last results.
 - Skip slow plugins with `SKIP_PLUGINS=100,500` in `.env` (or `--skip`).
   Skipped runs are marked incomplete and `build` refuses to export them
   without `--force`.
@@ -38,6 +40,36 @@ the fixture too.
   secrets masked.
 - Plugin-specific tips (e.g. reusing a Bitwarden session in a dev shell)
   are in that plugin's README.
+
+## Working on the engine with a running preview
+
+Normally the preview runs the engine code baked into the image. To try
+code changes without restarting, run it on your checkout instead: in
+`docker-compose.override.yml`, give the `preview` service the engine
+folder as `/app` (the commented example in
+`docker-compose.override.yml.example` shows the volumes). Then:
+
+1. `docker compose run --rm --service-ports preview` as usual.
+2. Edit a plugin or the engine.
+3. In the Rebuild panel, tick **Reload code first** and rebuild (partly or
+   fully). The engine and every plugin are imported again, so new plugin
+   folders appear and removed ones go; a plugin whose code changed runs
+   again even if it's unticked. The panel's notes say which ones did.
+
+- If the new code fails (e.g. a syntax error), the panel shows the error
+  and the page from the last good run stays; fix the code and rebuild.
+- Kept sessions (e.g. an unlocked vault) and cached results survive a
+  reload. The preview server itself isn't reloaded; restart for changes to
+  `delivery.py` or `homelab-documenter.py`.
+- Without the mount, **Reload code first** is greyed out, with a tooltip
+  explaining why.
+- The mount is read-only, so the container can't change your checkout.
+  The empty `conf/`, `input/`, `output/`, `secrets/` and `build/` folders
+  in the engine repo (each holding only a `.gitkeep`) are the mount points
+  Docker needs inside it; anything else put in them is ignored by git.
+- Your checkout's `.env` is visible inside the container through the
+  mount (nothing reads it there). It shouldn't hold secrets anyway; see
+  Credentials in the main README.
 
 ## Plugin numbering
 
@@ -119,6 +151,10 @@ def getPlugin():
   that outlives the call.
 - `getInputFilePath(name)` is `input/<ClassName>/<name>` in the content
   repo.
+- Set `expensive = True` on the class if it's slow or logs in to
+  something; the Rebuild panel then leaves it unticked by default and
+  reuses its last results. Its sections, credentials and `addHost` calls
+  are recorded automatically during a preview.
 - If the plugin logs in to something, log out and clean up in a `finally`
   block. During a preview (`vars.keep_alive`), a session may stay open for
   the Rebuild button if you register its cleanup in `vars.cleanups`.

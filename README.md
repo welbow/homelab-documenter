@@ -96,11 +96,15 @@ is left behind.
 | `docker compose run --rm secrets <set\|list\|check\|remove> [name]` | Manages encrypted credentials. |
 
 **Preview.** The page is generated in memory (a tmpfs) and served only on
-this machine (127.0.0.1). A **Rebuild** button in the bottom-right corner
-re-runs everything after you edit your content, without restarting;
-plugins that log in to something may keep their session open until you
-stop the preview. The button is added only to the page being served,
-never to the file, so it can't end up in a printout or an export.
+this machine (127.0.0.1). The **Rebuild** button in the bottom-right corner
+opens a panel for re-running after you edit your content, without
+restarting: tick the plugins to run again and the others reuse their
+results from the last run (slow ones such as network scans and password
+managers are unticked by default), or rebuild everything. A plugin whose
+config.json section changed runs again regardless. Plugins that log in to
+something may keep their session open until you stop the preview. The
+button is added only to the page being served, never to the file, so it
+can't end up in a printout or an export.
 
 **Build (export).** `/export` has no mount by default, on purpose: add one
 in `docker-compose.override.yml`, e.g. `'E:/:/export'` for a USB stick on

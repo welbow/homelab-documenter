@@ -22,10 +22,13 @@ ITEM_TYPES = {
 # Where the bw CLI keeps its login and cached (encrypted) vault
 BW_DATA_DIR = os.path.expanduser('~/.config/Bitwarden CLI')
 
-# The session kept open between preview rebuilds (vars.keep_alive, #23)
-_held = {'session': None}
+# The session kept open between preview rebuilds (vars.keep_alive, #23);
+# stored in vars so reloading this module's code (#25) keeps it
+_held = vars.sessions.setdefault('bitwarden', {'session': None})
 
 class BitwardenPasswords (Plugin):
+    expensive = True
+
     def __init__(self):
         super().__init__()
         self._session = None

@@ -6,6 +6,7 @@ import sys
 
 import delivery
 import pipeline
+import reloader
 import vars
 
 if __name__ == '__main__':
@@ -45,16 +46,32 @@ if __name__ == '__main__':
                              require_mount=args.require_mount)
         sys.exit(0 if ok else 2)
 
-    def rebuild():
-        if pipeline.main(skip=args.skip) != 0 or vars.page is None:
+    # The pipeline module in use; a code reload replaces it
+    code = {'pipeline': pipeline}
+
+    def rebuild(plugins=None, reload=False):
+        """Re-run the pipeline: everything, or (with plugins, a list of
+        plugin folder names) only those data plugins, reusing the others'
+        last results. With reload, re-import the engine's code first."""
+        if reload:
+            code['pipeline'] = reloader.reload_code()
+        only = None if plugins is None else set(plugins)
+        if code['pipeline'].main(skip=args.skip, only=only) != 0 \
+                or vars.page is None:
             raise RuntimeError('no page was generated (see the preview log)')
         return vars.page
+
+    def options():
+        """What the Rebuild panel offers."""
+        can_reload, why_not = reloader.available()
+        return {'plugins': code['pipeline'].plugin_options(args.skip),
+                'reload': can_reload, 'reload_note': why_not}
 
     try:
         delivery.preview(vars.page, extras_dir,
                          host=os.environ.get('PREVIEW_HOST', '127.0.0.1'),
                          port=int(os.environ.get('PREVIEW_PORT', '8000')),
-                         rebuild=rebuild)
+                         rebuild=rebuild, options=options)
     finally:
         for cleanup in vars.cleanups:
             cleanup()

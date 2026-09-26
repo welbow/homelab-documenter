@@ -17,6 +17,8 @@ from Plugin import Plugin
 SCAN_ARGUMENTS = '-sn -PE --disable-arp-ping'
 
 class NmapPingScan (Plugin):
+    expensive = True
+
     def __init__(self):
         super().__init__()
 

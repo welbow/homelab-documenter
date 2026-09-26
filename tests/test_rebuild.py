@@ -78,7 +78,8 @@ def test_rebuild_reruns_the_pipeline_and_serves_the_new_page(built):
 
         status, data = post(base + '/rebuild')
 
-        assert (status, data) == (200, {'ok': True, 'page': '/output.html'})
+        assert (status, data) == (200, {'ok': True, 'page': '/output.html',
+                                  'notes': []})
         page = get(base + '/output.html')
         assert 'Edited intro' in page
         assert 'Hello from the intro' not in page
@@ -95,8 +96,8 @@ def test_failed_rebuild_reports_the_error(built):
         assert 'Homelab Documentation' in get(base + '/output.html')
 
     assert status == 500
-    assert data == {'ok': False, 'error': 'Rebuild failed: config.json is '
-                                          'not valid JSON'}
+    assert data == {'ok': False, 'error': 'Rebuild failed: RuntimeError: '
+                                          'config.json is not valid JSON'}
 
 
 def test_one_rebuild_at_a_time(built):

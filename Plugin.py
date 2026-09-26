@@ -7,6 +7,10 @@ import logging
 # Define our default class
 
 class Plugin:
+    # Slow or needs a login (network scans, password managers): a partial
+    # rebuild leaves it unticked by default and reuses its last results
+    expensive = False
+
     def getConfig(self) -> bool:
         # Corner case since a plugin loads the config - don't break that
         # Have we loaded config yet? If not, return early
@@ -70,6 +74,8 @@ class Plugin:
         disagree the first (lowest-numbered plugin) wins and the
         disagreement is logged."""
         source = source or type(self).__name__
+        if vars.recording is not None:
+            vars.recording.append((ip, source, dict(fields)))
         host = vars.hosts.setdefault(ip, {'ipaddress': ip, 'sources': []})
         if source not in host['sources']:
             host['sources'].append(source)

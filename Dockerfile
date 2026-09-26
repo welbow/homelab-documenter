@@ -37,14 +37,13 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/* \
  && pip install --no-cache-dir -r requirements.txt
 
-COPY --from=bw /usr/local/bin/bw /app/bin/bw
-# On the PATH for every process, including a dev shell (see #6: unlock
-# once with `export BW_SESSION=$(bw unlock --raw)`, then re-run)
-ENV PATH="/app/bin:${PATH}"
+# Outside /app, so the engine folder can be mounted over /app while
+# developing (#25), and on the PATH for every process, including a dev shell
+COPY --from=bw /usr/local/bin/bw /usr/local/bin/bw
 
 COPY . .
 
 # Fail the build, not the run, if a bundled tool can't execute.
-RUN /app/bin/bw --version && nmap --version > /dev/null
+RUN bw --version && nmap --version > /dev/null
 
 ENTRYPOINT ["/app/entrypoint.sh"]

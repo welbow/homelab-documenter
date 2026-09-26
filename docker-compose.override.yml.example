@@ -27,6 +27,16 @@ services:
   preview:
     volumes: *content
     dns: *dns
+    # Developing the engine: run preview on the engine code in this folder
+    # (read-only) instead of the copy in the image, so the Rebuild panel's
+    # "Reload code" picks up your edits. Replace `volumes: *content` above
+    # with:
+    # volumes:
+    #   - './:/app:ro'
+    #   - '../my-homelab-content/conf/:/app/conf/'
+    #   - '../my-homelab-content/input/:/app/input/'
+    #   - '../my-homelab-content/output/:/app/output/:ro'
+    #   - '../my-homelab-content/secrets/:/app/secrets/:ro'
 
   # The same content volumes, listed again (YAML can't add to an anchored
   # list), plus the export folder

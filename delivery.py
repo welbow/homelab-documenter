@@ -12,6 +12,7 @@ import shutil
 import threading
 
 import hostpath
+import vars
 
 logger = logging.getLogger('delivery')
 
@@ -58,29 +59,92 @@ def looks_like_packet(path):
 
 
 # Injected by the preview server into the page it serves (never into the
-# generated file, so exports and prints don't have it); hidden in print
+# generated file, so exports and prints don't have it); hidden in print.
+# "Rebuild" opens a panel: tick the plugins to run again (the others reuse
+# their last results), optionally reload the engine code, or rebuild
+# everything.
 REBUILD_BUTTON = b"""
 <div id="hd-rebuild" style="position:fixed;right:1rem;bottom:1rem;z-index:9999;
-  max-width:40rem;padding:.5rem .75rem;background:#fff;border:1px solid #888;
-  border-radius:4px;box-shadow:0 1px 4px rgba(0,0,0,.25);font:14px sans-serif">
-  <button type="button">Rebuild</button> <span></span>
+  max-width:28rem;max-height:80vh;overflow:auto;padding:.5rem .75rem;
+  background:#fff;color:#000;border:1px solid #888;border-radius:4px;
+  box-shadow:0 1px 4px rgba(0,0,0,.25);font:14px sans-serif">
+  <div id="hd-panel" hidden>
+    <strong>Run again</strong> (unticked ones reuse their last results)
+    <div id="hd-plugins" style="margin:.4rem 0"></div>
+    <label id="hd-reload-label"><input type="checkbox" id="hd-reload">
+      Reload code first</label>
+    <div style="margin-top:.5rem">
+      <button type="button" id="hd-selected">Rebuild selected</button>
+      <button type="button" id="hd-all">Rebuild everything</button>
+    </div>
+    <hr style="margin:.5rem 0">
+  </div>
+  <button type="button" id="hd-toggle">Rebuild</button> <span id="hd-note"></span>
 </div>
-<style>@media print { #hd-rebuild { display: none !important; } }</style>
+<style>@media print { #hd-rebuild { display: none !important; } }
+#hd-plugins label { display: block; } #hd-plugins small { color: #666; }</style>
 <script>
 (function () {
-  var box = document.getElementById('hd-rebuild');
-  var button = box.querySelector('button'), note = box.querySelector('span');
-  button.onclick = function () {
-    button.disabled = true;
-    note.textContent = 'Rebuilding...';
-    fetch('/rebuild', {method: 'POST'})
+  var $ = function (id) { return document.getElementById(id); };
+  var panel = $('hd-panel'), note = $('hd-note'), list = $('hd-plugins');
+  var buttons = [$('hd-toggle'), $('hd-selected'), $('hd-all')];
+  function busy(on, text) {
+    buttons.forEach(function (b) { b.disabled = on; });
+    note.textContent = text || '';
+  }
+  function load() {
+    fetch('/rebuild/options').then(function (r) { return r.json(); })
+      .then(function (d) {
+        list.innerHTML = '';
+        d.plugins.forEach(function (p) {
+          var label = document.createElement('label');
+          var box = document.createElement('input');
+          box.type = 'checkbox';
+          box.value = p.name;
+          box.checked = p.always || !p.expensive || !p.cached;
+          box.disabled = p.always || !p.cached;
+          label.appendChild(box);
+          label.appendChild(document.createTextNode(' ' + p.title + ' '));
+          var hint = document.createElement('small');
+          hint.textContent = p.always ? '(always runs)'
+            : !p.cached ? '(no earlier results; runs)'
+            : p.expensive ? '(slow or logs in)' : '';
+          label.appendChild(hint);
+          list.appendChild(label);
+        });
+        var reload = $('hd-reload');
+        reload.disabled = !d.reload;
+        $('hd-reload-label').title = d.reload ? '' : d.reload_note;
+        if (!d.reload) { reload.checked = false; }
+      })
+      .catch(function (e) { note.textContent = String(e); });
+  }
+  function rebuild(body) {
+    busy(true, 'Rebuilding...');
+    fetch('/rebuild', {method: 'POST', headers: {'Content-Type': 'application/json'},
+                       body: JSON.stringify(body)})
       .then(function (r) { return r.json(); })
       .then(function (d) {
-        if (d.ok) { location.href = d.page; return; }
-        button.disabled = false;
-        note.textContent = d.error;
+        if (!d.ok) { busy(false, d.error); return; }
+        if (d.notes && d.notes.length) {
+          busy(true, d.notes.join('; ') + '. Reloading...');
+          setTimeout(function () { location.href = d.page; }, 2500);
+        } else { location.href = d.page; }
       })
-      .catch(function (e) { button.disabled = false; note.textContent = String(e); });
+      .catch(function (e) { busy(false, String(e)); });
+  }
+  $('hd-toggle').onclick = function () {
+    panel.hidden = !panel.hidden;
+    if (!panel.hidden) { load(); }
+  };
+  $('hd-selected').onclick = function () {
+    var picked = Array.prototype.filter.call(
+      list.querySelectorAll('input'), function (b) { return b.checked; })
+      .map(function (b) { return b.value; });
+    rebuild({plugins: picked, reload: $('hd-reload').checked});
+  };
+  $('hd-all').onclick = function () {
+    rebuild({plugins: null, reload: $('hd-reload').checked});
   };
 })();
 </script>
@@ -88,18 +152,20 @@ REBUILD_BUTTON = b"""
 
 
 class PreviewState:
-    """The page being served, and how to rebuild it (one at a time)."""
+    """The page being served, how to rebuild it (one at a time), and what
+    the Rebuild panel offers."""
 
-    def __init__(self, page, rebuild=None):
+    def __init__(self, page, rebuild=None, options=None):
         self.page = page
         self.rebuild = rebuild
+        self.options = options
         self.lock = threading.Lock()
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
     """Serves the build dir, falling back to the extras folder, sends / to
     the page, and (when a rebuild is possible) adds the Rebuild button to
-    the page and handles POST /rebuild."""
+    the page and handles GET /rebuild/options and POST /rebuild."""
 
     def __init__(self, *args, state=None, extras_dir=None, **kwargs):
         self.state = state
@@ -128,12 +194,18 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self._send(code, json.dumps(data).encode('utf-8'), 'application/json')
 
     def do_GET(self):
-        if self.path == '/':
+        path = self.path.split('?')[0]
+        if path == '/':
             self.send_response(302)
             self.send_header('Location', self._page_path())
             self.end_headers()
             return
-        if self.state.rebuild and self.path.split('?')[0] == self._page_path():
+        if path == '/rebuild/options' and self.state.rebuild:
+            self._json(200, self.state.options() if self.state.options
+                       else {'plugins': [], 'reload': False,
+                             'reload_note': ''})
+            return
+        if self.state.rebuild and path == self._page_path():
             with open(self.state.page, 'rb') as f:
                 html = f.read()
             at = html.lower().rfind(b'</body>')
@@ -144,6 +216,20 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return
         super().do_GET()
 
+    def _request(self):
+        """The rebuild options in the request body: plugins (a list of
+        plugin folder names, or null for all) and reload."""
+        length = int(self.headers.get('Content-Length') or 0)
+        if not length:
+            return {}
+        body = json.loads(self.rfile.read(length) or b'{}')
+        params = {}
+        if body.get('plugins') is not None:
+            params['plugins'] = [str(p) for p in body['plugins']]
+        if body.get('reload'):
+            params['reload'] = True
+        return params
+
     def do_POST(self):
         if self.path != '/rebuild' or not self.state.rebuild:
             self._json(404, {'ok': False, 'error': 'Not found'})
@@ -153,18 +239,29 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         if origin and origin != 'http://' + self.headers.get('Host', ''):
             self._json(403, {'ok': False, 'error': 'Not allowed'})
             return
+        try:
+            params = self._request()
+        except ValueError:
+            self._json(400, {'ok': False, 'error': 'Bad request'})
+            return
         if not self.state.lock.acquire(blocking=False):
             self._json(409, {'ok': False, 'error': 'Already rebuilding'})
             return
         try:
-            logger.info('Rebuilding')
-            self.state.page = self.state.rebuild()
-            self._json(200, {'ok': True, 'page': self._page_path()})
+            what = params.get('plugins')
+            logger.info('Rebuilding{0}{1}'.format(
+                ' (reloading code)' if params.get('reload') else '',
+                '' if what is None else
+                ': ' + (', '.join(what) or 'reusing all results')))
+            self.state.page = self.state.rebuild(**params)
+            self._json(200, {'ok': True, 'page': self._page_path(),
+                             'notes': vars.last_run.get('notes', [])})
             logger.info('Rebuilt')
         except Exception as exc:
-            logger.error('Rebuild failed: {0}'.format(exc))
-            self._json(500, {'ok': False,
-                             'error': 'Rebuild failed: {0}'.format(exc)})
+            logger.error('Rebuild failed: {0}: {1}'.format(
+                type(exc).__name__, exc))
+            self._json(500, {'ok': False, 'error': 'Rebuild failed: {0}: {1}'
+                             .format(type(exc).__name__, exc)})
         finally:
             self.state.lock.release()
 
@@ -172,8 +269,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         logger.debug(fmt % args)
 
 
-def make_server(page, extras_dir, host, port, rebuild=None):
-    state = PreviewState(page, rebuild)
+def make_server(page, extras_dir, host, port, rebuild=None, options=None):
+    state = PreviewState(page, rebuild, options)
     handler = functools.partial(Handler, state=state, extras_dir=extras_dir,
                                 directory=os.path.dirname(page))
     server = http.server.ThreadingHTTPServer((host, port), handler)
@@ -181,11 +278,12 @@ def make_server(page, extras_dir, host, port, rebuild=None):
     return server
 
 
-def preview(page, extras_dir, host='127.0.0.1', port=8000, rebuild=None):
+def preview(page, extras_dir, host='127.0.0.1', port=8000, rebuild=None,
+            options=None):
     """Serve the page until Ctrl-C. With rebuild (a function that re-runs
-    the pipeline and returns the new page), the page gets a Rebuild
-    button."""
-    server = make_server(page, extras_dir, host, port, rebuild)
+    the pipeline and returns the new page), the page gets a Rebuild button;
+    options says what its panel offers."""
+    server = make_server(page, extras_dir, host, port, rebuild, options)
     logger.info('Preview at http://127.0.0.1:{0}/ (Ctrl-C to stop){1}'.format(
         port, '; use the Rebuild button after editing content'
         if rebuild else ''))

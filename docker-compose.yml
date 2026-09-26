@@ -22,6 +22,9 @@ x-packet: &packet
     # Preview listens on all interfaces inside the container; the port is
     # only published on the host's 127.0.0.1
     PREVIEW_HOST: 0.0.0.0
+    # No __pycache__ folders written into a mounted engine checkout (the
+    # dev mount, see docs/DEVELOPMENT.md)
+    PYTHONDONTWRITEBYTECODE: '1'
   tmpfs:
     - /app/build
   volumes:

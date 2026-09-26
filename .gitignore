@@ -1,7 +1,10 @@
 # Repository-specific files
-/input/
-/output/
-/conf/config.json
+/input/*
+!/input/.gitkeep
+/output/*
+!/output/.gitkeep
+/conf/*
+!/conf/.gitkeep
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -13,7 +16,8 @@ __pycache__/
 
 # Distribution / packaging
 .Python
-build/
+/build/*
+!/build/.gitkeep
 develop-eggs/
 dist/
 downloads/
@@ -138,4 +142,5 @@ bin/
 docker-compose.override.yml
 
 # Encrypted credentials of the engine's own default content dir
-/secrets/
+/secrets/*
+!/secrets/.gitkeep

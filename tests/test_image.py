@@ -4,7 +4,7 @@ import subprocess
 
 import pytest
 
-in_image = pytest.mark.skipif(not os.path.isdir('/app/bin'),
+in_image = pytest.mark.skipif(not os.path.isfile('/usr/local/bin/bw'),
                               reason='only meaningful inside the Docker image')
 
 
@@ -21,6 +21,6 @@ def test_nmap_runs():
 
 @in_image
 def test_bw_runs():
-    result = run('/app/bin/bw', '--version')
+    result = run('bw', '--version')
 
     assert result.returncode == 0, result.stderr
