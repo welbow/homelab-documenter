@@ -46,6 +46,12 @@ class Plugin:
                 'after the numbered sections'.format(seq, title))
 
         new_module_key = '{0}-{1}'.format(seq, keyname)
+        if new_module_key in vars.output:
+            self._logger.warning(
+                'Section {0} is added twice: {1!r} replaces {2!r}. Give one '
+                'of them a different seq_number or key name'.format(
+                    new_module_key, title,
+                    vars.output[new_module_key]['title']))
 
         new_output = {
             'output': output,

@@ -22,8 +22,9 @@ def test_example_content_builds_without_credentials(tmp_path):
     with open(vars.page, encoding='utf-8') as f:
         html = f.read()
     assert re.findall(r'<a name="([^"]+)"', html) == [
-        '005-table-of-contents', '010-static-file', '020-static-file',
-        '030-static-file', '950-output-host-info']
+        '005-table-of-contents', '010-static-file-start-here',
+        '020-static-file-file-server', '030-static-file-network-notes',
+        '950-output-host-info']
     assert 'Confidential.' in html                 # the hide_surround banner
     assert 'Living room TV box' in html            # from host-overrides.csv
     assert vars.skipped == []

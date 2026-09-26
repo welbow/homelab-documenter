@@ -16,8 +16,8 @@ def test_sections_render_in_seq_order(content):
     html = content.run()
 
     sections = re.findall(r'<a name="([^"]+)"', html)
-    assert sections == ['004-table-of-contents', '005-static-file',
-                        '010-static-file', '950-output-host-info']
+    assert sections == ['004-table-of-contents', '005-static-file-intro',
+                        '010-static-file-notes', '950-output-host-info']
     # The hide_surround banner (seq 002) has no anchor but still comes first.
     assert html.index('Confidential') < html.index('<a name=')
 
@@ -33,8 +33,8 @@ def test_hide_surround_has_no_heading_toc_entry_or_top_link(content):
     html = content.run()
 
     assert '<p class="warn">Confidential</p>' in html
-    assert 'name="002-static-file"' not in html
-    assert 'href="#002-static-file"' not in html
+    assert 'name="002-static-file-banner"' not in html
+    assert 'href="#002-static-file-banner"' not in html
     # Every visible section (TOC, intro, notes, Appendix A) gets a
     # "Return to top" link; the banner doesn't.
     assert html.count('Return to top') == 4
@@ -48,7 +48,7 @@ def test_toc_links_all_point_at_anchors(content):
     toc_links = [link for link in links if link != 'top']
 
     # The TOC lists every visible section except itself, in seq order.
-    assert toc_links == ['005-static-file', '010-static-file',
+    assert toc_links == ['005-static-file-intro', '010-static-file-notes',
                          '950-output-host-info']
     assert set(links) <= anchors
 

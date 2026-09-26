@@ -72,8 +72,11 @@ Three digits are a readable convention. A typical layout:
 | 950 | Appendix: devices |
 | 960+ | Appendices: credentials |
 
-Two sections with the same `seq_number` and key replace each other, so give
-each one its own number.
+Each section's key is `<seq_number>-<keyname>`, which is also its anchor
+in the page (e.g. `#010-static-file-start-here`). Sections sharing a
+`seq_number` appear side by side, ordered by key. If a plugin adds a key
+that's already taken, the later section replaces the earlier and a warning
+names both, so give each section its own number or key name.
 
 ## Writing a plugin
 

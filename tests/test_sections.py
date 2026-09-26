@@ -65,9 +65,52 @@ def test_packet_and_contents_follow_numeric_order(content):
     html = content.run()
 
     assert re.findall(r'<a name="([^"]+)"', html) == [
-        '4-table-of-contents', '7-static-file', '30-static-file',
+        '4-table-of-contents', '7-static-file-notes', '30-static-file-intro',
         '950-output-host-info']
     # the contents list (which doesn't list itself) in the same order
     contents = re.findall(r'<li>\s*<a href="#([^"]+)"', html)
-    assert contents == ['7-static-file', '30-static-file',
+    assert contents == ['7-static-file-notes', '30-static-file-intro',
                         '950-output-host-info']
+
+
+def test_pages_sharing_a_seq_number_both_appear(content):
+    files = content.config['plugins']['StaticFile']['files']
+    files[0]['seq_number'] = '010'     # intro.html, now the same as notes.txt
+
+    html = content.run()
+
+    assert re.findall(r'<a name="([^"]+)"', html) == [
+        '004-table-of-contents', '010-static-file-intro',
+        '010-static-file-notes', '950-output-host-info']
+    assert 'Hello from the intro' in html and 'line one' in html
+
+
+def test_explicit_key_name_still_wins(content):
+    files = content.config['plugins']['StaticFile']['files']
+    files[0]['key_name'] = 'welcome'
+
+    html = content.run()
+
+    assert 'name="005-welcome"' in html
+
+
+def test_reused_key_warns_and_last_wins(caplog):
+    with caplog.at_level(logging.WARNING):
+        add('010', 'notes', title='Router notes')
+        add('010', 'notes', title='Wi-Fi notes')
+
+    assert vars.section_keys() == ['010-notes']
+    assert vars.output['010-notes']['title'] == 'Wi-Fi notes'
+    assert "Section 010-notes is added twice: 'Wi-Fi notes' replaces " \
+        "'Router notes'" in caplog.text
+
+
+def test_default_keyname_from_file_name():
+    import importlib
+    static = importlib.import_module('plugins.010-static-file')
+
+    assert static.default_keyname('Start Here.html') == 'static-file-start-here'
+    assert static.default_keyname('notes.txt') == 'static-file-notes'
+    assert static.default_keyname('sub/My_Phone (old).HTML') \
+        == 'static-file-my-phone-old'
+    assert static.default_keyname('!!!.html') == 'static-file'

@@ -21,7 +21,7 @@ Adds your hand-written pages to the packet: introductions, instructions,
 | `file` | yes | File name in `input/StaticFile/` in the content repo. |
 | `title` | no | Section heading (default "No title specified"). |
 | `seq_number` | no | Position in the packet (a number, e.g. `"010"`); default `010`. |
-| `key_name` | no | Section key after the number; default `static-file`. Give each file its own `seq_number` (or `key_name`), or later files replace earlier ones. |
+| `key_name` | no | Section key after the number, also used in the page anchor. Default: `static-file-` plus the file name, e.g. `start-here.html` gives `010-static-file-start-here`, so pages sharing a `seq_number` both appear. Two entries with the same number and key replace each other (with a warning). |
 | `hide_surround` | no | `1` to show the content without a heading, table-of-contents entry or "Return to top" link, e.g. a confidentiality banner at the top. |
 
 **Input files** (`input/StaticFile/`): a file that contains HTML (any
