@@ -219,6 +219,29 @@ def test_reload_is_available_only_with_the_code_mounted(monkeypatch):
     assert reloader.available() == (True, '')
 
 
+def test_replayed_plugins_bring_back_their_networks(preview, monkeypatch):
+    from Plugin import Plugin
+
+    class Scopes(Plugin):
+        runs = 0
+
+        def run(self):
+            Scopes.runs += 1
+            self.addNetwork('192.0.2.0/24', source='MSDHCP', purpose='LAN')
+
+    plugin = Scopes()
+    monkeypatch.setattr(pipeline, 'directory', lambda p: 'x-scopes')
+    monkeypatch.setattr(pipeline, 'config_section', lambda p: None)
+    monkeypatch.setattr(pipeline, 'source_mtime', lambda p: 0)
+    pipeline.run_recorded(plugin)
+    vars.networks.clear()
+
+    pipeline.replay(plugin)
+
+    assert Scopes.runs == 1
+    assert vars.networks['192.0.2.0/24']['purpose'] == 'LAN'
+
+
 # --- re-reading vars (#30) ---------------------------------------------------
 
 @pytest.fixture

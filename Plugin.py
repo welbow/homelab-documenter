@@ -77,19 +77,33 @@ class Plugin:
         if vars.recording is not None:
             vars.recording.append((ip, source, dict(fields)))
         host = vars.hosts.setdefault(ip, {'ipaddress': ip, 'sources': []})
-        if source not in host['sources']:
-            host['sources'].append(source)
+        self._merge(host, 'Host ' + ip, source, fields)
+
+    def addNetwork(self, subnet, source=None, **fields):
+        """Add what this plugin knows about a network (subnet in CIDR form,
+        e.g. name, purpose) to vars.networks, with the same merge rules as
+        addHost."""
+        source = source or type(self).__name__
+        if vars.recording_networks is not None:
+            vars.recording_networks.append((subnet, source, dict(fields)))
+        network = vars.networks.setdefault(subnet, {'subnet': subnet,
+                                                    'sources': []})
+        self._merge(network, 'Network ' + subnet, source, fields)
+
+    def _merge(self, record, label, source, fields):
+        if source not in record['sources']:
+            record['sources'].append(source)
 
         for key, value in fields.items():
             if value in (None, ''):
                 continue
-            current = host.get(key)
+            current = record.get(key)
             if current in (None, ''):
-                host[key] = value
+                record[key] = value
             elif current != value:
                 self._logger.info(
-                    'Host {0}: keeping {1} {2!r}, {3} reported {4!r}'.format(
-                        ip, key, current, source, value))
+                    '{0}: keeping {1} {2!r}, {3} reported {4!r}'.format(
+                        label, key, current, source, value))
 
     def getInputFilePath(self,file):
         return os.path.join(vars.data_dir, 'input',

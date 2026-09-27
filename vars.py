@@ -28,6 +28,11 @@ hosts_keys = {
     'Seen by': 'sources',
     'Notes': 'notes'
 }
+# Networks by subnet (CIDR), from data plugins via Plugin.addNetwork:
+# what each is called and what it's for, e.g. {'192.0.2.0/24': {'subnet',
+# 'sources', 'name', 'purpose'}}. Plugins that describe networks (e.g. the
+# OPNsense Networks section) read it.
+networks = {}
 creds = {}
 creds_keys = {
     'Name': 'name',
@@ -54,11 +59,13 @@ cleanups = []
 # here rather than in the plugin modules so a code reload keeps them
 sessions = {}
 # Each data plugin's results from its last run in this preview, for partial
-# rebuilds (#25): {directory: {'output', 'creds', 'hosts', 'config',
-# 'mtime'}}. Memory only: it can hold passwords.
+# rebuilds (#25): {directory: {'output', 'creds', 'hosts', 'networks',
+# 'config', 'mtime'}}. Memory only: it can hold passwords.
 plugin_cache = {}
-# While a plugin runs during a preview: the addHost calls it makes
+# While a plugin runs during a preview: the addHost and addNetwork calls
+# it makes
 recording = None
+recording_networks = None
 # What the last run did: {'ran': [...], 'replayed': [...], 'notes': [...]}
 last_run = {}
 
@@ -66,9 +73,10 @@ last_run = {}
 # file but keeps their current values; everything else (definitions such
 # as hosts_keys, and the functions below) comes from the file anew. A new
 # state variable goes here too.
-STATE = ('data_dir', 'build_dir', 'page', 'config', 'hosts', 'creds',
-         'output', 'skipped', 'stamp', 'keep_alive', 'cleanups', 'sessions',
-         'plugin_cache', 'recording', 'last_run')
+STATE = ('data_dir', 'build_dir', 'page', 'config', 'hosts', 'networks',
+         'creds', 'output', 'skipped', 'stamp', 'keep_alive', 'cleanups',
+         'sessions', 'plugin_cache', 'recording', 'recording_networks',
+         'last_run')
 
 
 def section_keys():
@@ -84,14 +92,15 @@ def section_keys():
 
 def reset(new_data_dir=os.curdir):
     """Clear the state plugins share, so one run can't leak into the next."""
-    global data_dir, build_dir, page, config, hosts, creds, output, skipped
-    global stamp
+    global data_dir, build_dir, page, config, hosts, networks, creds, output
+    global skipped, stamp
     data_dir = new_data_dir
     build_dir = os.environ.get('BUILD_DIR', '').strip() or \
         os.path.join(data_dir, 'build')
     page = None
     config = {}
     hosts = {}
+    networks = {}
     creds = {}
     output = {}
     skipped = []

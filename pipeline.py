@@ -119,17 +119,20 @@ def run_recorded(plugin):
     output_before = dict(vars.output)
     creds_before = dict(vars.creds)
     vars.recording = []
+    vars.recording_networks = []
     try:
         plugin.run()
         hosts = vars.recording
+        networks = vars.recording_networks
     finally:
-        vars.recording = None
+        vars.recording = vars.recording_networks = None
     vars.plugin_cache[directory(plugin)] = {
         'output': {k: v for k, v in vars.output.items()
                    if output_before.get(k) is not v},
         'creds': {k: v for k, v in vars.creds.items()
                   if creds_before.get(k) is not v},
         'hosts': hosts,
+        'networks': networks,
         'config': config_section(plugin),
         'mtime': source_mtime(plugin),
     }
@@ -137,13 +140,15 @@ def run_recorded(plugin):
 
 def replay(plugin):
     """Put back what the plugin produced on its last run: its sections,
-    credentials, and hosts (through addHost again, in plugin order, so the
-    merge rules still hold)."""
+    credentials, hosts and networks (through addHost and addNetwork again,
+    in plugin order, so the merge rules still hold)."""
     cached = vars.plugin_cache[directory(plugin)]
     vars.output.update(cached['output'])
     vars.creds.update(cached['creds'])
     for ip, source, fields in cached['hosts']:
         plugin.addHost(ip, source=source, **fields)
+    for subnet, source, fields in cached.get('networks', []):
+        plugin.addNetwork(subnet, source=source, **fields)
 
 
 def why_rerun(plugin, only):

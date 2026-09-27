@@ -6,7 +6,7 @@ turns it into an "if something happens to me" packet for your homelab.
 
 Everything here is made up (example.com, 192.0.2.x addresses). It builds as
 is, with no credentials: the plugins that need them (password manager,
-network scan, firewall) are switched off until you set them up.
+network scan, firewall, DHCP server) are switched off until you set them up.
 
 ## Start your own
 

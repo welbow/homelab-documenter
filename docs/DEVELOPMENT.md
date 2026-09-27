@@ -150,6 +150,9 @@ def getPlugin():
   host into the device table: blank values never replace real ones, the
   lower-numbered plugin wins a conflict (logged), and `source` shows in
   the Seen by column.
+- `addNetwork(subnet, source, **fields)` does the same for a network
+  (`subnet` in CIDR form, e.g. `name`, `purpose`) in `vars.networks`, for
+  plugins that describe networks.
 - `credentials.get(name)` returns a stored credential (or None); tell
   users to store it with `docker compose run --rm secrets set <name>`.
   Never log it or put it on a command line or in an environment variable

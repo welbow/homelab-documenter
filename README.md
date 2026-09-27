@@ -193,6 +193,7 @@ your environment; each is off unless its config section enables it.
 | 010 | [StaticFile](plugins/010-static-file/README.md) | Adds your hand-written pages. |
 | 050 | [HostOverrides](plugins/050-host-overrides/README.md) | Adds hand-written name, type and notes per device. |
 | 100 | [NmapPingScan](plugins/100-nmap-ping-scan/README.md) | Finds live hosts on your subnets. |
+| 110 | [MSDHCP](plugins/110-msdhcp/README.md) | Adds devices from a Microsoft (Windows Server) DHCP server's leases and reservations (optional; only if you use one). |
 | 150 | [OPNsense](plugins/150-opnsense/README.md) | Adds devices from an OPNsense firewall's ARP table, with MAC addresses, vendors and interfaces (optional; only if you use OPNsense). |
 | 500 | [BitwardenPasswords](plugins/500-bitwarden-passwords/README.md) | Lists the items in a Bitwarden vault (optional; only if you use Bitwarden). |
 | 900 | [OutputCredInfo](plugins/900-output-cred-info/README.md) | Renders the credential tables that password plugins collect. |

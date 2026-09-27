@@ -335,10 +335,15 @@ class OPNsense (Plugin):
                 self._logger.warning('network_section.purposes: no interface '
                                      'named {0!r}'.format(name))
 
+        # What a network is for: config.json first, else what another
+        # plugin knows about the subnet (e.g. a DHCP scope description)
+        def purpose(device, iface):
+            return purposes.get(iface['name'].lower()) or \
+                vars.networks.get(iface['subnet'], {}).get('purpose', '')
+
         columns = [('Network', lambda d, i: i['name'])]
-        if purposes:
-            columns.append(('Purpose',
-                            lambda d, i: purposes.get(i['name'].lower(), '')))
+        if any(purpose(d, i) for d, i in interfaces.items()):
+            columns.append(('Purpose', purpose))
         columns += [('Subnet', lambda d, i: 'DHCP' if i['dhcp']
                      else i['subnet']),
                     ('Firewall address', lambda d, i: 'DHCP' if i['dhcp']
