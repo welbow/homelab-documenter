@@ -17,12 +17,12 @@ server, in Windows PowerShell as an administrator. Running it again changes
 nothing.
 
 .PARAMETER Group
-The group to allow (default: DHCP Users, as DOMAIN\DHCP Users on a domain
-controller).
+The group to allow. Preferably one of its own, so it's clear why its
+members have this, e.g. DOMAIN\DHCP WMI Remote Readers on a domain
+controller (default: DHCP Users).
 
 .EXAMPLE
-.\grant-dhcp-wmi-access.ps1
-.\grant-dhcp-wmi-access.ps1 -Group 'EXAMPLE\DHCP Users'
+.\grant-dhcp-wmi-access.ps1 -Group 'EXAMPLE\DHCP WMI Remote Readers'
 #>
 param([string]$Group = 'DHCP Users')
 

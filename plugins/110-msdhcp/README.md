@@ -75,23 +75,30 @@ On a **member or standalone server**, use a domain account as above, or a
 local one: `New-LocalUser`, then `Add-LocalGroupMember` to the same two
 groups on that server.
 
-Then, on the DHCP server itself, let DHCP Users read the DHCP WMI
-namespace over WinRM. The DHCP cmdlets go through WMI, and WMI only admits
-a remote login to a namespace with "Remote Enable", which only
-administrators have by default (without it: `Cannot connect to CIM server.
-Access denied`). As an administrator, in Windows PowerShell:
+Then let the account reach the DHCP part of WMI over WinRM. The DHCP
+cmdlets go through WMI (Windows' management layer; WinRM is only the
+connection), and WMI only admits a remote login to a namespace with
+"Remote Enable", which only administrators have by default (without it:
+`Cannot connect to CIM server. Access denied`). Give it to a group of its
+own, so it's clear why the account has it:
 
 ```powershell
-.\grant-dhcp-wmi-access.ps1                            # member server: local DHCP Users
-.\grant-dhcp-wmi-access.ps1 -Group 'EXAMPLE\DHCP Users' # domain controller
+New-ADGroup -Name 'DHCP WMI Remote Readers' -GroupScope DomainLocal `
+    -Description 'May read the DHCP WMI namespace over WinRM (homelab-documenter)'
+Add-ADGroupMember -Identity 'DHCP WMI Remote Readers' -Members 'svc-homelab-docs'
+# On the DHCP server, as an administrator, in Windows PowerShell:
+.\grant-dhcp-wmi-access.ps1 -Group 'EXAMPLE\DHCP WMI Remote Readers'
 ```
+
+(On a member server, a local group works the same way: `New-LocalGroup`,
+`Add-LocalGroupMember`, then `-Group 'DHCP WMI Remote Readers'`.)
 
 [grant-dhcp-wmi-access.ps1](grant-dhcp-wmi-access.ps1) adds Enable Account,
 Execute Methods and Remote Enable for the group on
-`root/Microsoft/Windows/DHCP` only; what the account may do with DHCP is
-still limited by DHCP Users (read-only). The same can be done by hand in
-`wmimgmt.msc` (WMI Control > Properties > Security > Root > Microsoft >
-Windows > DHCP > Security).
+`root/Microsoft/Windows/DHCP` only. It lets the account ask, not change:
+what it may do with DHCP is still limited by DHCP Users (read-only). The
+same can be done by hand in `wmimgmt.msc` (WMI Control > Properties >
+Security > Root > Microsoft > Windows > DHCP > Security).
 
 Check it from another Windows machine:
 
