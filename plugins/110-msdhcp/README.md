@@ -66,7 +66,7 @@ are no local accounts), in PowerShell as a domain admin:
 $password = Read-Host -AsSecureString 'Password for svc-homelab-docs'
 New-ADUser -Name 'svc-homelab-docs' -AccountPassword $password -Enabled $true `
     -PasswordNeverExpires $true -CannotChangePassword $true `
-    -Description 'homelab-documenter: reads DHCP (read-only)'
+    -Description 'homelab-documenter service account (read-only)'
 Add-ADGroupMember -Identity 'DHCP Users' -Members 'svc-homelab-docs'
 Add-ADGroupMember -Identity 'Remote Management Users' -Members 'svc-homelab-docs'
 ```
@@ -80,18 +80,20 @@ cmdlets go through WMI (Windows' management layer; WinRM is only the
 connection), and WMI only admits a remote login to a namespace with
 "Remote Enable", which only administrators have by default (without it:
 `Cannot connect to CIM server. Access denied`). Give it to a group of its
-own, so it's clear why the account has it:
+own, so it's clear why the account has it. The group grants nothing by
+itself: each namespace is granted explicitly, so it can stay generic and
+be reused if other plugins need other namespaces later:
 
 ```powershell
-New-ADGroup -Name 'DHCP WMI Remote Readers' -GroupScope DomainLocal `
-    -Description 'May read the DHCP WMI namespace over WinRM (homelab-documenter)'
-Add-ADGroupMember -Identity 'DHCP WMI Remote Readers' -Members 'svc-homelab-docs'
+New-ADGroup -Name 'WMI Remote Readers' -GroupScope DomainLocal `
+    -Description 'May use the WMI namespaces granted to it over WinRM'
+Add-ADGroupMember -Identity 'WMI Remote Readers' -Members 'svc-homelab-docs'
 # On the DHCP server, as an administrator, in Windows PowerShell:
-.\grant-dhcp-wmi-access.ps1 -Group 'EXAMPLE\DHCP WMI Remote Readers'
+.\grant-dhcp-wmi-access.ps1 -Group 'EXAMPLE\WMI Remote Readers'
 ```
 
 (On a member server, a local group works the same way: `New-LocalGroup`,
-`Add-LocalGroupMember`, then `-Group 'DHCP WMI Remote Readers'`.)
+`Add-LocalGroupMember`, then `-Group 'WMI Remote Readers'`.)
 
 [grant-dhcp-wmi-access.ps1](grant-dhcp-wmi-access.ps1) adds Enable Account,
 Execute Methods and Remote Enable for the group on

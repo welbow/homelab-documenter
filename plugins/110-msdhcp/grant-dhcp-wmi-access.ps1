@@ -18,11 +18,11 @@ nothing.
 
 .PARAMETER Group
 The group to allow. Preferably one of its own, so it's clear why its
-members have this, e.g. DOMAIN\DHCP WMI Remote Readers on a domain
+members have this, e.g. DOMAIN\WMI Remote Readers on a domain
 controller (default: DHCP Users).
 
 .EXAMPLE
-.\grant-dhcp-wmi-access.ps1 -Group 'EXAMPLE\DHCP WMI Remote Readers'
+.\grant-dhcp-wmi-access.ps1 -Group 'EXAMPLE\WMI Remote Readers'
 #>
 param([string]$Group = 'DHCP Users')
 
