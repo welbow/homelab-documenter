@@ -188,7 +188,8 @@ class OPNsense (Plugin):
         self._excluded = {'devices': set(), 'subnets': []}
         interfaces = {}
         for row in rows:
-            if not row.get('device') or row.get('enabled') is False:
+            # Devices without an identifier aren't assigned (not in use)
+            if not row.get('device') or not row.get('identifier') or                     row.get('enabled') is False:
                 continue
             address = subnet = ''
             addr4 = row.get('addr4') or ''
@@ -290,26 +291,44 @@ class OPNsense (Plugin):
         return count
 
     def _add_network_section(self, interfaces):
+        """A table of the networks the firewall routes, with what each is
+        for (network_section.purposes, by interface name)."""
         section = self._config['network_section']
+        if not isinstance(section, dict):   # "network_section": 1
+            section = {}
+        purposes = {str(k).lower(): v
+                    for k, v in section.get('purposes', {}).items()}
+        known = {i['name'].lower() for i in interfaces.values()}
+        for name in section.get('purposes', {}):
+            if str(name).lower() not in known:
+                self._logger.warning('network_section.purposes: no interface '
+                                     'named {0!r}'.format(name))
+
+        columns = [('Network', lambda d, i: i['name'])]
+        if purposes:
+            columns.append(('Purpose',
+                            lambda d, i: purposes.get(i['name'].lower(), '')))
+        columns += [('Subnet', lambda d, i: i['subnet']),
+                    ('Firewall address', lambda d, i: i['address']),
+                    ('VLAN', lambda d, i: i['vlan']),
+                    ('Interface', lambda d, i: d)]
+
         with div() as d:
             if section.get('header'):
                 p(section['header'])
             with table():
                 with thead(), tr():
-                    for title in ('Interface', 'Device', 'VLAN', 'Address',
-                                  'Subnet', 'Status'):
+                    for title, _ in columns:
                         th(title)
                 with tbody():
+                    # Only interfaces with a network (not e.g. a spare port)
                     for device, iface in sorted(
-                            interfaces.items(),
+                            ((d, i) for d, i in interfaces.items()
+                             if i['subnet']),
                             key=lambda item: item[1]['name'].lower()):
                         with tr():
-                            td(iface['name'])
-                            td(device)
-                            td(iface['vlan'])
-                            td(iface['address'])
-                            td(iface['subnet'])
-                            td(iface['status'])
+                            for _, value in columns:
+                                td(value(device, iface))
         self.addOutput(d, title=section.get('title', 'Networks'),
                        seq=section.get('seq_number'),
                        keyname='opnsense-networks')

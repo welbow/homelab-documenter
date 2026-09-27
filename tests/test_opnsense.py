@@ -33,6 +33,10 @@ INTERFACES = {'total': 3, 'rows': [
      'addr4': '203.0.113.5/24', 'vlan_tag': None},
     {'identifier': 'lo0', 'description': 'Loopback', 'device': 'lo0',
      'enabled': True, 'status': 'up', 'addr4': '127.0.0.1/8'},
+    {'identifier': 'opt3', 'description': 'Backup', 'device': 'em2',
+     'enabled': True, 'status': 'no carrier', 'addr4': ''},
+    {'identifier': '', 'description': 'Unassigned Interface',
+     'device': 'pflog0', 'status': 'up', 'addr4': ''},
 ]}
 ARP = [
     {'mac': 'aa:bb:cc:00:00:10', 'ip': '192.0.2.10', 'intf': 'igb1',
@@ -303,8 +307,25 @@ def test_network_section(firewall):
     html = section['output'].render()
     assert 'What the firewall routes' in html
     assert '<td>IoT</td>' in html and '<td>30</td>' in html
-    assert '198.51.100.0/24' in html
-    assert 'Spare' not in html   # disabled interface
+    assert '198.51.100.0/24' in html and '<td>198.51.100.1</td>' in html
+    assert 'Purpose' not in html   # no purposes configured
+    assert 'Spare' not in html     # disabled interface
+    assert 'Loopback' not in html
+    assert 'Backup' not in html     # no network on it
+    assert 'Unassigned' not in html
+
+
+def test_network_purposes(firewall, caplog):
+    config()['network_section'] = {'seq_number': '040', 'purposes': {
+        'iot': 'Smart plugs and TVs', 'Guest': 'Visitors'}}
+
+    with caplog.at_level(logging.WARNING):
+        run()
+
+    html = vars.output['040-opnsense-networks']['output'].render()
+    assert '<th>Purpose</th>' in html
+    assert '<td>Smart plugs and TVs</td>' in html
+    assert "no interface named 'Guest'" in caplog.text
 
 
 def test_disabled_does_nothing(firewall):
@@ -341,3 +362,12 @@ def test_all_interfaces_are_included_by_default(firewall):
 
     assert vars.hosts['203.0.113.5']['type'] == 'router'
     assert vars.hosts['203.0.113.1']['vendor'] == 'ISP Router Co'
+
+
+def test_network_section_can_be_just_switched_on(firewall):
+    config()['network_section'] = 1
+
+    run()
+
+    section = vars.output['150-opnsense-networks']
+    assert section['title'] == 'Networks'

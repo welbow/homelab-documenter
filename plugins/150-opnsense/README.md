@@ -17,7 +17,9 @@ Reads an OPNsense firewall through its REST API:
   "hostname": "firewall",
   "ca_file": "opnsense-ca.pem",
   "network_section": {"title": "Networks", "seq_number": "040",
-                      "header": "The networks the firewall routes"}
+                      "header": "The networks the firewall routes",
+                      "purposes": {"LAN": "Computers and the file server",
+                                   "IoT": "Smart plugs, TVs, cameras"}}
 }
 ```
 
@@ -30,7 +32,7 @@ Reads an OPNsense firewall through its REST API:
 | `hostname` | no | The firewall's name, for its own rows in the device table. |
 | `exclude_interfaces` | no | Interfaces to leave out, by name, identifier or device (e.g. `["WAN"]`): no firewall address, ARP entries, leases or Networks row for them. The loopback is always left out. |
 | `leases` | no | `1` also reads the DHCPv4 leases (see below). Default off. |
-| `network_section` | no | Adds a section listing the interfaces and VLANs (name, device, VLAN tag, address, subnet, status). `title`, `seq_number` and `header` as for other sections. |
+| `network_section` | no | Adds a Networks section: one row per interface/VLAN with its subnet, the firewall's address on it (the gateway), VLAN tag and interface. `title`, `seq_number` and `header` as for other sections, and `purposes`: what each network is for, by interface name (e.g. `{"LAN": "Computers and the file server", "IoT": "Smart plugs, TVs, cameras"}`), shown as a Purpose column. |
 
 **Credentials:** `opnsense_api_key` and `opnsense_api_secret`.
 
