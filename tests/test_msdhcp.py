@@ -335,6 +335,19 @@ def test_not_in_dhcp_users(winrm):
         run()
 
 
+def test_no_wmi_remote_access(winrm):
+    # What Get-DhcpServerv4Scope says over WinRM when the account may not
+    # use the DHCP WMI namespace remotely
+    winrm.result = FakeResult(status_code=1, std_err=(
+        b'Cannot connect to CIM server. Access denied\r\n'
+        b'    + CategoryInfo : ResourceUnavailable: (PS_DhcpServerv4Scope:'
+        b'String) [Get-DhcpServerv4Scope], CimJobException'))
+
+    with pytest.raises(msdhcp.MSDHCPError,
+                       match='Remote Enable.*root/Microsoft/Windows/DHCP'):
+        run()
+
+
 def test_other_script_error(winrm):
     winrm.result = FakeResult(status_code=1, std_err=(
         b'Get-DhcpServerv4Scope : The term is not recognized\r\nmore'))

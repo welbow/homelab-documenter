@@ -75,6 +75,24 @@ On a **member or standalone server**, use a domain account as above, or a
 local one: `New-LocalUser`, then `Add-LocalGroupMember` to the same two
 groups on that server.
 
+Then, on the DHCP server itself, let DHCP Users read the DHCP WMI
+namespace over WinRM. The DHCP cmdlets go through WMI, and WMI only admits
+a remote login to a namespace with "Remote Enable", which only
+administrators have by default (without it: `Cannot connect to CIM server.
+Access denied`). As an administrator, in Windows PowerShell:
+
+```powershell
+.\grant-dhcp-wmi-access.ps1                            # member server: local DHCP Users
+.\grant-dhcp-wmi-access.ps1 -Group 'EXAMPLE\DHCP Users' # domain controller
+```
+
+[grant-dhcp-wmi-access.ps1](grant-dhcp-wmi-access.ps1) adds Enable Account,
+Execute Methods and Remote Enable for the group on
+`root/Microsoft/Windows/DHCP` only; what the account may do with DHCP is
+still limited by DHCP Users (read-only). The same can be done by hand in
+`wmimgmt.msc` (WMI Control > Properties > Security > Root > Microsoft >
+Windows > DHCP > Security).
+
 Check it from another Windows machine:
 
 ```powershell
@@ -111,6 +129,7 @@ it in the private content repo like the rest.
 |---|---|
 | `credential ... not set` | Store it (above). |
 | `rejected the login` | Wrong username or password, or the account isn't in Remote Management Users. |
+| `denied WMI access to the DHCP namespace` | Run grant-dhcp-wmi-access.ps1 on the server (above). |
 | `denied reading DHCP: add the account to the DHCP Users group` | Add it; group changes apply to new logins, so it may take a few minutes. |
 | `can't reach WinRM on ...` | Check `server`; run `Test-WSMan` against it; the Windows Firewall must allow WinRM (5985/5986) from your Docker host. |
 | `the image has no pywinrm` | Rebuild the image: `docker compose build`. |

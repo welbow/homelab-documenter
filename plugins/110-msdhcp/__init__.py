@@ -173,13 +173,23 @@ class MSDHCP (Plugin):
 
         if result.status_code != 0:
             error = result.std_err.decode('utf-8', 'replace')
-            if re.search(r'access is denied|PermissionDenied|WIN32 5\b',
+            # The DHCP cmdlets talk to the server through WMI, which only
+            # lets a remote (WinRM) login in with "Remote Enable" on the
+            # DHCP namespace; DHCP Users doesn't have it by default
+            if re.search(r'CIM server\. Access (is )?denied', error,
+                         re.IGNORECASE):
+                raise MSDHCPError(
+                    'MSDHCP: {0} denied WMI access to the DHCP namespace: '
+                    'give DHCP Users "Enable Account", "Execute Methods" and '
+                    '"Remote Enable" on root/Microsoft/Windows/DHCP (see the '
+                    'plugin README)'.format(server))
+            if re.search(r'access (is )?denied|PermissionDenied|WIN32 5\b',
                          error, re.IGNORECASE):
                 raise MSDHCPError(
                     'MSDHCP: {0} denied reading DHCP: add the account to the '
                     'DHCP Users group (on a domain controller, the domain '
-                    'group), then sign it out or wait for its token to '
-                    'refresh'.format(server))
+                    'group); group changes apply to new logins'.format(
+                        server))
             raise MSDHCPError('MSDHCP: the export failed on {0}: {1}'.format(
                 server, _first_line(error)))
         try:
