@@ -30,11 +30,12 @@ INTERFACES = {'total': 3, 'rows': [
      'enabled': False, 'status': 'no carrier', 'addr4': ''},
     {'identifier': 'wan', 'description': 'WAN', 'device': 'igb0',
      'enabled': True, 'status': 'up', 'macaddr': '00:0d:b9:00:00:00',
-     'addr4': '203.0.113.5/24', 'vlan_tag': None},
+     'addr4': '203.0.113.5/24', 'vlan_tag': None, 'link_type': 'dhcp'},
     {'identifier': 'lo0', 'description': 'Loopback', 'device': 'lo0',
      'enabled': True, 'status': 'up', 'addr4': '127.0.0.1/8'},
     {'identifier': 'opt3', 'description': 'Backup', 'device': 'em2',
-     'enabled': True, 'status': 'no carrier', 'addr4': ''},
+     'enabled': True, 'status': 'no carrier', 'addr4': '',
+     'link_type': 'dhcp'},
     {'identifier': '', 'description': 'Unassigned Interface',
      'device': 'pflog0', 'status': 'up', 'addr4': ''},
 ]}
@@ -311,7 +312,11 @@ def test_network_section(firewall):
     assert 'Purpose' not in html   # no purposes configured
     assert 'Spare' not in html     # disabled interface
     assert 'Loopback' not in html
-    assert 'Backup' not in html     # no network on it
+    # addresses from DHCP say so, whether there's a lease right now or not
+    for name in ('WAN', 'Backup'):
+        row = html.split('<td>{0}</td>'.format(name))[1].split('</tr>')[0]
+        assert row.count('<td>DHCP</td>') == 2
+    assert '203.0.113' not in html
     assert 'Unassigned' not in html
 
 
@@ -353,7 +358,9 @@ def test_excluded_interfaces_are_left_out(firewall):
     run()
 
     assert not any(ip.startswith('203.0.113.') for ip in vars.hosts)
-    assert 'WAN' not in vars.output['040-opnsense-networks']['output'].render()
+    # still in the Networks section: which port the internet comes in on
+    html = vars.output['040-opnsense-networks']['output'].render()
+    assert '<td>WAN</td>' in html and '<td>igb0</td>' in html
     assert '192.0.2.10' in vars.hosts
 
 

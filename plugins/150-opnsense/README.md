@@ -30,9 +30,9 @@ Reads an OPNsense firewall through its REST API:
 | `ca_file` | no | For a self-signed certificate: the CA (or the certificate itself) as a PEM file in the content repo's `conf/`. |
 | `timeout` | no | Seconds to wait for each API call (default 15). |
 | `hostname` | no | The firewall's name, for its own rows in the device table. |
-| `exclude_interfaces` | no | Interfaces to leave out, by name, identifier or device (e.g. `["WAN"]`): no firewall address, ARP entries, leases or Networks row for them. The loopback is always left out. |
+| `exclude_interfaces` | no | Interfaces whose devices to leave out of the device table, by name, identifier or device (e.g. `["WAN"]`): no firewall address, ARP entries or leases from them. They stay in the Networks section. The loopback is always left out. |
 | `leases` | no | `1` also reads the DHCPv4 leases (see below). Default off. |
-| `network_section` | no | Adds a Networks section: one row per interface/VLAN with its subnet, the firewall's address on it (the gateway), VLAN tag and interface. `title`, `seq_number` and `header` as for other sections, and `purposes`: what each network is for, by interface name (e.g. `{"LAN": "Computers and the file server", "IoT": "Smart plugs, TVs, cameras"}`), shown as a Purpose column. |
+| `network_section` | no | Adds a Networks section: one row per assigned interface/VLAN with its subnet, the firewall's address on it (the gateway), VLAN tag and interface. An interface that gets its address by DHCP (e.g. the WAN) says DHCP instead of the current lease. `title`, `seq_number` and `header` as for other sections, and `purposes`: what each network is for, by interface name (e.g. `{"LAN": "Computers and the file server", "IoT": "Smart plugs, TVs, cameras"}`), shown as a Purpose column. |
 
 **Credentials:** `opnsense_api_key` and `opnsense_api_secret`.
 

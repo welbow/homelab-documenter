@@ -170,26 +170,30 @@ class OPNsense (Plugin):
     # --- data ---------------------------------------------------------------
 
     def _interfaces(self):
-        """The firewall's configured interfaces, by device name:
-        {'igb1': {'name', 'address', 'subnet', 'vlan', 'mac', 'status'}}.
-        Empty (with a warning) if this OPNsense has no overview API."""
+        """The firewall's assigned interfaces, by device name: {'igb1':
+        {'name', 'address', 'subnet', 'dhcp', 'vlan', 'mac', 'status',
+        'excluded'}}. Excluded ones (exclude_interfaces) stay in the list
+        for the Networks section, but add no hosts. Empty (with a warning)
+        if this OPNsense has no overview API."""
+        self._excluded = {'devices': set(), 'subnets': []}
         try:
             rows = self._get(INTERFACES, current=1, rowCount=-1).get('rows', [])
         except NotFound:
             self._logger.warning('No interface overview on this OPNsense '
                                  '(24.1 or later has it); hosts get no '
                                  'subnet or interface')
-            self._excluded = {'devices': set(), 'subnets': []}
             return {}
         exclude = {str(name).lower()
                    for name in self._config.get('exclude_interfaces', [])}
-        # Devices and subnets of excluded interfaces: their ARP entries and
-        # leases are left out too
-        self._excluded = {'devices': set(), 'subnets': []}
         interfaces = {}
         for row in rows:
+            self._logger.debug('Interface {0}: {1}'.format(
+                row.get('device'), {k: row.get(k) for k in (
+                    'identifier', 'description', 'link_type', 'addr4',
+                    'vlan_tag', 'enabled')}))
             # Devices without an identifier aren't assigned (not in use)
-            if not row.get('device') or not row.get('identifier') or                     row.get('enabled') is False:
+            if not row.get('device') or not row.get('identifier') or \
+                    row.get('enabled') is False:
                 continue
             address = subnet = ''
             addr4 = row.get('addr4') or ''
@@ -200,25 +204,30 @@ class OPNsense (Plugin):
                     subnet = str(iface.network)
                 except ValueError:
                     pass
+            # The firewall's loopback isn't on the network
+            if address and ipaddress.ip_address(address).is_loopback:
+                continue
             names = {str(row.get(k) or '').lower()
                      for k in ('description', 'identifier', 'device')}
-            if names & exclude:
+            excluded = bool(names & exclude)
+            if excluded:
+                # Its ARP entries and leases are left out too
                 self._excluded['devices'].add(row['device'])
                 if subnet:
                     self._excluded['subnets'].append(
                         ipaddress.ip_network(subnet))
-                continue
-            # The firewall's loopback isn't on the network
-            if address and ipaddress.ip_address(address).is_loopback:
-                continue
             interfaces[row['device']] = {
                 'name': row.get('description') or row.get('identifier') or
                 row['device'],
                 'address': address,
                 'subnet': subnet,
+                # Address from DHCP (e.g. a WAN): it changes, so the
+                # Networks section says DHCP rather than today's lease
+                'dhcp': row.get('link_type') == 'dhcp',
                 'vlan': str(row.get('vlan_tag') or ''),
                 'mac': row.get('macaddr') or '',
                 'status': row.get('status') or '',
+                'excluded': excluded,
             }
         return interfaces
 
@@ -229,7 +238,7 @@ class OPNsense (Plugin):
 
     def _add_firewall(self, interfaces):
         for device, iface in interfaces.items():
-            if not iface['address']:
+            if not iface['address'] or iface['excluded']:
                 continue
             self.addHost(iface['address'], source='OPNsense', type='router',
                          hostname=self._config.get('hostname', ''),
@@ -256,7 +265,8 @@ class OPNsense (Plugin):
         return count
 
     def _add_leases(self, interfaces):
-        by_subnet = {i['subnet']: i for i in interfaces.values() if i['subnet']}
+        by_subnet = {i['subnet']: i for i in interfaces.values()
+                     if i['subnet'] and not i['excluded']}
         count = 0
         answered = False
         for server, endpoint in LEASES.items():
@@ -308,8 +318,10 @@ class OPNsense (Plugin):
         if purposes:
             columns.append(('Purpose',
                             lambda d, i: purposes.get(i['name'].lower(), '')))
-        columns += [('Subnet', lambda d, i: i['subnet']),
-                    ('Firewall address', lambda d, i: i['address']),
+        columns += [('Subnet', lambda d, i: 'DHCP' if i['dhcp']
+                     else i['subnet']),
+                    ('Firewall address', lambda d, i: 'DHCP' if i['dhcp']
+                     else i['address']),
                     ('VLAN', lambda d, i: i['vlan']),
                     ('Interface', lambda d, i: d)]
 
@@ -321,10 +333,10 @@ class OPNsense (Plugin):
                     for title, _ in columns:
                         th(title)
                 with tbody():
-                    # Only interfaces with a network (not e.g. a spare port)
+                    # Every assigned interface, excluded ones too (e.g. the
+                    # WAN: which port the internet comes in on)
                     for device, iface in sorted(
-                            ((d, i) for d, i in interfaces.items()
-                             if i['subnet']),
+                            interfaces.items(),
                             key=lambda item: item[1]['name'].lower()):
                         with tr():
                             for _, value in columns:
