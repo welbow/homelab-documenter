@@ -180,10 +180,10 @@ class MSDHCP (Plugin):
                          re.IGNORECASE):
                 raise MSDHCPError(
                     'MSDHCP: {0} denied WMI access to the DHCP namespace: '
-                    'give the account (through a group of its own) "Enable '
-                    'Account", "Execute Methods" and "Remote Enable" on '
-                    'root/Microsoft/Windows/DHCP with grant-dhcp-wmi-access'
-                    '.ps1 (see the plugin README)'.format(server))
+                    'give DHCP Users "Enable Account", "Execute Methods" '
+                    'and "Remote Enable" on root/Microsoft/Windows/DHCP with '
+                    'grant-dhcp-wmi-access.ps1 (see the plugin README)'
+                    .format(server))
             if re.search(r'access (is )?denied|PermissionDenied|WIN32 5\b',
                          error, re.IGNORECASE):
                 raise MSDHCPError(

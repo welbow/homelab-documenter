@@ -75,32 +75,32 @@ On a **member or standalone server**, use a domain account as above, or a
 local one: `New-LocalUser`, then `Add-LocalGroupMember` to the same two
 groups on that server.
 
-Then let the account reach the DHCP part of WMI over WinRM. The DHCP
+Then let DHCP Users reach the DHCP part of WMI over WinRM. The DHCP
 cmdlets go through WMI (Windows' management layer; WinRM is only the
 connection), and WMI only admits a remote login to a namespace with
 "Remote Enable", which only administrators have by default (without it:
-`Cannot connect to CIM server. Access denied`). Give it to a group of its
-own, so it's clear why the account has it. The group grants nothing by
-itself: each namespace is granted explicitly, so it can stay generic and
-be reused if other plugins need other namespaces later:
+`Cannot connect to CIM server. Access denied`). The grant is per
+namespace, so this opens only the DHCP one, and only to the group that may
+read DHCP anyway. On the DHCP server, as an administrator, in Windows
+PowerShell:
 
 ```powershell
-New-ADGroup -Name 'WMI Remote Readers' -GroupScope DomainLocal `
-    -Description 'May use the WMI namespaces granted to it over WinRM'
-Add-ADGroupMember -Identity 'WMI Remote Readers' -Members 'svc-homelab-docs'
-# On the DHCP server, as an administrator, in Windows PowerShell:
-.\grant-dhcp-wmi-access.ps1 -Group 'EXAMPLE\WMI Remote Readers'
+.\grant-dhcp-wmi-access.ps1                               # member server
+.\grant-dhcp-wmi-access.ps1 -Group 'EXAMPLE\DHCP Users'   # domain controller
 ```
-
-(On a member server, a local group works the same way: `New-LocalGroup`,
-`Add-LocalGroupMember`, then `-Group 'WMI Remote Readers'`.)
 
 [grant-dhcp-wmi-access.ps1](grant-dhcp-wmi-access.ps1) adds Enable Account,
 Execute Methods and Remote Enable for the group on
-`root/Microsoft/Windows/DHCP` only. It lets the account ask, not change:
+`root/Microsoft/Windows/DHCP` only. It lets the group ask, not change:
 what it may do with DHCP is still limited by DHCP Users (read-only). The
 same can be done by hand in `wmimgmt.msc` (WMI Control > Properties >
-Security > Root > Microsoft > Windows > DHCP > Security).
+Security > Root > Microsoft > Windows > DHCP > Security: add DHCP Users,
+allow Enable Account, Execute Methods and Remote Enable).
+
+Alternatively, grant it to a general-purpose group of your own (e.g. "WMI
+Remote Readers", with the service account in it) with `-Group`: a group
+grants nothing by itself, since each namespace is granted explicitly, so
+it can be reused if other plugins need other namespaces later.
 
 Check it from another Windows machine:
 
