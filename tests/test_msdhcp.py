@@ -236,38 +236,38 @@ def test_unknown_mode(content):
 
 # --- WinRM mode --------------------------------------------------------------
 
-class FakeResult:
-    def __init__(self, status_code=0, std_out=b'', std_err=b''):
-        self.status_code = status_code
-        self.std_out = std_out
-        self.std_err = std_err
+class ErrorRecord:
+    def __init__(self, text):
+        self.text = text
+
+    def __str__(self):
+        return self.text
 
 
 @pytest.fixture
 def winrm(content, monkeypatch):
-    """A fake pywinrm: Session records how it was made and what it ran,
-    and answers with fake.result (or raises fake.error)."""
-    import winrm.exceptions as exceptions
-    fake = types.SimpleNamespace(
-        result=FakeResult(std_out=json.dumps(EXPORT).encode()), error=None,
-        sessions=[], exceptions=exceptions)
+    """A fake pypsrp Client: records how it was made and what it ran, and
+    answers with fake.output / fake.errors (or raises fake.error)."""
+    import pypsrp.exceptions as exceptions
+    fake = types.SimpleNamespace(output=json.dumps(EXPORT), errors=[],
+                                 error=None, clients=[],
+                                 exceptions=exceptions)
 
-    class Session:
-        def __init__(self, target, auth, **options):
-            fake.sessions.append({'target': target, 'auth': auth,
-                                  'options': options})
+    class Client:
+        def __init__(self, server, **options):
+            fake.clients.append({'server': server, 'options': options})
 
-        def run_ps(self, script):
-            fake.sessions[-1]['script'] = script
+        def execute_ps(self, script):
+            fake.clients[-1]['script'] = script
             if fake.error:
                 raise fake.error
-            return fake.result
+            streams = types.SimpleNamespace(
+                error=[ErrorRecord(e) for e in fake.errors])
+            return fake.output, streams, bool(fake.errors)
 
-    module = types.ModuleType('winrm')
-    module.Session = Session
-    module.exceptions = exceptions
-    monkeypatch.setitem(sys.modules, 'winrm', module)
-    monkeypatch.setitem(sys.modules, 'winrm.exceptions', exceptions)
+    module = types.ModuleType('pypsrp.client')
+    module.Client = Client
+    monkeypatch.setitem(sys.modules, 'pypsrp.client', module)
     config().update({'mode': 'winrm', 'server': 'dc1.example.com'})
     credentials.put('msdhcp_username', USERNAME)
     credentials.put('msdhcp_password', PASSWORD)
@@ -277,24 +277,25 @@ def winrm(content, monkeypatch):
 def test_winrm_runs_the_export_script(winrm):
     run()
 
-    session = winrm.sessions[0]
-    assert session['target'] == 'http://dc1.example.com:5985/wsman'
-    assert session['auth'] == (USERNAME, PASSWORD)
-    assert session['options']['transport'] == 'ntlm'
-    assert session['options']['message_encryption'] == 'always'
-    assert 'Get-DhcpServerv4Lease' in session['script']
-    assert '.SYNOPSIS' not in session['script']   # help comment stripped
+    client = winrm.clients[0]
+    assert client['server'] == 'dc1.example.com'
+    options = client['options']
+    assert (options['username'], options['password']) == (USERNAME, PASSWORD)
+    assert options['port'] == 5985 and options['ssl'] is False
+    assert options['auth'] == 'ntlm' and options['encryption'] == 'always'
+    assert 'Get-DhcpServerv4Lease' in client['script']
+    assert '.SYNOPSIS' not in client['script']   # help comment stripped
     assert vars.hosts['192.0.2.50']['hostname'] == 'laptop.example.com'
 
 
-def test_winrm_over_https(winrm, content):
+def test_winrm_over_https(winrm):
     config().update({'transport': 'https', 'verify_tls': 0})
 
     run()
 
-    session = winrm.sessions[0]
-    assert session['target'] == 'https://dc1.example.com:5986/wsman'
-    assert session['options']['server_cert_validation'] == 'ignore'
+    options = winrm.clients[0]['options']
+    assert options['port'] == 5986 and options['ssl'] is True
+    assert options['cert_validation'] is False
 
 
 def test_missing_credentials(winrm, tmp_path):
@@ -303,7 +304,7 @@ def test_missing_credentials(winrm, tmp_path):
     with pytest.raises(msdhcp.MSDHCPError,
                        match='secrets set msdhcp_password'):
         run()
-    assert winrm.sessions == []
+    assert winrm.clients == []
 
 
 def test_missing_server(winrm):
@@ -314,47 +315,50 @@ def test_missing_server(winrm):
 
 
 def test_rejected_login(winrm, caplog):
-    winrm.error = winrm.exceptions.InvalidCredentialsError('401')
+    winrm.error = winrm.exceptions.AuthenticationError('401')
 
     with caplog.at_level(logging.DEBUG), \
             pytest.raises(msdhcp.MSDHCPError) as error:
         run()
 
     assert 'rejected the login' in str(error.value)
-    assert 'Remote Management Users' in str(error.value)
     for text in (str(error.value), caplog.text):
         assert PASSWORD not in text
 
 
-def test_not_in_dhcp_users(winrm):
-    winrm.result = FakeResult(status_code=1, std_err=(
-        b'Get-DhcpServerv4Scope : Failed to enumerate scopes on DHCP server '
-        b'DC1. Access is denied.'))
+def test_not_in_remote_management_users(winrm):
+    # What WinRM answers when the login is fine but remoting isn't allowed
+    winrm.error = winrm.exceptions.WSManFaultError(
+        5, 'dc1.example.com', 'Access is denied.', None, None, None)
 
-    with pytest.raises(msdhcp.MSDHCPError, match='DHCP Users'):
+    with pytest.raises(msdhcp.MSDHCPError, match='Remote Management Users'):
         run()
 
 
 def test_no_wmi_remote_access(winrm):
     # What Get-DhcpServerv4Scope says over WinRM when the account may not
     # use the DHCP WMI namespace remotely
-    winrm.result = FakeResult(status_code=1, std_err=(
-        b'Cannot connect to CIM server. Access denied\r\n'
-        b'    + CategoryInfo : ResourceUnavailable: (PS_DhcpServerv4Scope:'
-        b'String) [Get-DhcpServerv4Scope], CimJobException'))
+    winrm.errors = ['Cannot connect to CIM server. Access denied']
 
     with pytest.raises(msdhcp.MSDHCPError,
                        match='Remote Enable.*root/Microsoft/Windows/DHCP'):
         run()
 
 
+def test_not_in_dhcp_users(winrm):
+    winrm.errors = ['Failed to enumerate scopes on DHCP server DC1. '
+                    'Access is denied.']
+
+    with pytest.raises(msdhcp.MSDHCPError, match='DHCP Users'):
+        run()
+
+
 def test_other_script_error(winrm):
-    winrm.result = FakeResult(status_code=1, std_err=(
-        b'Get-DhcpServerv4Scope : The term is not recognized\r\nmore'))
+    winrm.errors = ['The term is not recognized\r\nmore']
 
     with pytest.raises(msdhcp.MSDHCPError,
                        match='export failed on dc1.example.com: '
-                             'Get-DhcpServerv4Scope : The term'):
+                             'The term is not recognized$'):
         run()
 
 

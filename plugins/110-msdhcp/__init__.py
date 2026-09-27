@@ -20,6 +20,9 @@ ACTIVE = ('Active', 'ActiveReservation')
 
 MAC = re.compile(r'^[0-9a-f]{2}([-:][0-9a-f]{2}){5}$', re.IGNORECASE)
 
+# pypsrp logs every script it runs, in full, at INFO
+logging.getLogger('pypsrp').setLevel(logging.WARNING)
+
 
 class MSDHCPError(RuntimeError):
     pass
@@ -104,29 +107,32 @@ class MSDHCP (Plugin):
                               for name in missing)))
         try:
             import requests
-            import winrm
-            import winrm.exceptions
+            from pypsrp.client import Client
+            import pypsrp.exceptions
         except ImportError:
-            raise MSDHCPError('MSDHCP: the image has no pywinrm; rebuild it '
+            raise MSDHCPError('MSDHCP: the image has no pypsrp; rebuild it '
                               '(docker compose build)') from None
 
         https = self._config.get('transport', 'ntlm') == 'https'
         port = self._config.get('port', 5986 if https else 5985)
-        endpoint = '{0}://{1}:{2}/wsman'.format(
-            'https' if https else 'http', server, port)
         timeout = int(self._config.get('timeout', 30))
+        # PowerShell remoting (the same as Invoke-Command), which Remote
+        # Management Users may use; a plain WinRM command shell needs admin
         options = {
-            'transport': 'ntlm',
+            'port': port,
+            'ssl': https,
+            'auth': 'ntlm',
             # NTLM encrypts the session itself when it isn't HTTPS
-            'message_encryption': 'auto' if https else 'always',
-            'operation_timeout_sec': timeout,
-            'read_timeout_sec': timeout + 10,
+            'encryption': 'auto' if https else 'always',
+            'operation_timeout': timeout,
+            'connection_timeout': timeout,
+            'read_timeout': timeout + 10,
         }
         if https:
             if self._config.get('verify_tls', 1) in (0, False):
                 self._logger.warning('verify_tls is off: the server\'s TLS '
                                      'certificate is not checked')
-                options['server_cert_validation'] = 'ignore'
+                options['cert_validation'] = False
             elif self._config.get('ca_file'):
                 path = os.path.join(vars.data_dir, 'conf',
                                     self._config['ca_file'])
@@ -134,7 +140,7 @@ class MSDHCP (Plugin):
                     raise MSDHCPError('MSDHCP: ca_file {0!r} not found (it '
                                       'is read from conf/ in the content '
                                       'repo)'.format(self._config['ca_file']))
-                options['ca_trust_path'] = path
+                options['cert_validation'] = path
 
         with open(EXPORT_SCRIPT, encoding='utf-8') as f:
             # The help comment isn't needed on the wire
@@ -142,23 +148,30 @@ class MSDHCP (Plugin):
 
         self._logger.info('Reading DHCP from {0} over WinRM'.format(server))
         where = '{0} (port {1})'.format(server, port)
+        rejected = MSDHCPError(
+            'MSDHCP: {0} rejected the login: check msdhcp_username '
+            '(DOMAIN\\user or user@domain) and msdhcp_password'.format(server))
         try:
-            session = winrm.Session(endpoint, auth=(username, password),
-                                    **options)
-            result = session.run_ps(script)
-        except winrm.exceptions.InvalidCredentialsError:
-            raise MSDHCPError(
-                'MSDHCP: {0} rejected the login: check msdhcp_username '
-                '(DOMAIN\\user or user@domain) and msdhcp_password, and that '
-                'the account is in Remote Management Users'.format(
-                    server)) from None
+            client = Client(server, username=username, password=password,
+                            **options)
+            output, streams, had_errors = client.execute_ps(script)
+        except pypsrp.exceptions.AuthenticationError:
+            raise rejected from None
+        except pypsrp.exceptions.WSManFaultError as e:
+            # 5: ERROR_ACCESS_DENIED
+            if getattr(e, 'code', None) == 5:
+                raise MSDHCPError(
+                    'MSDHCP: {0} let the account log in but refused it '
+                    'PowerShell remoting: add it to Remote Management '
+                    'Users'.format(server)) from None
+            raise MSDHCPError('MSDHCP: WinRM on {0} failed: {1}'.format(
+                where, _first_line(e))) from None
         except requests.exceptions.SSLError as e:
             raise MSDHCPError(
                 'MSDHCP: the TLS certificate of {0} was not trusted ({1}). '
                 'Set "ca_file" to the CA that signed it (a file in conf/), '
                 'or "verify_tls": 0'.format(server, _first_line(e))) from None
-        except (requests.exceptions.Timeout,
-                winrm.exceptions.WinRMOperationTimeoutError):
+        except requests.exceptions.Timeout:
             raise MSDHCPError('MSDHCP: no answer from {0} within {1}s (raise '
                               '"timeout" if it\'s just slow)'.format(
                                   where, timeout)) from None
@@ -167,12 +180,14 @@ class MSDHCP (Plugin):
                 'MSDHCP: can\'t reach WinRM on {0}: {1}. Check "server", and '
                 'that WinRM is on (Test-WSMan {2})'.format(
                     where, _first_line(e), server)) from None
-        except winrm.exceptions.WinRMTransportError as e:
+        except pypsrp.exceptions.WinRMTransportError as e:
+            if getattr(e, 'code', None) == 401:
+                raise rejected from None
             raise MSDHCPError('MSDHCP: WinRM on {0} failed: {1}'.format(
                 where, _first_line(e))) from None
 
-        if result.status_code != 0:
-            error = result.std_err.decode('utf-8', 'replace')
+        if had_errors:
+            error = '\n'.join(str(record) for record in streams.error)
             # The DHCP cmdlets talk to the server through WMI, which only
             # lets a remote (WinRM) login in with "Remote Enable" on the
             # DHCP namespace; DHCP Users doesn't have it by default
@@ -194,7 +209,7 @@ class MSDHCP (Plugin):
             raise MSDHCPError('MSDHCP: the export failed on {0}: {1}'.format(
                 server, _first_line(error)))
         try:
-            return json.loads(result.std_out.decode('utf-8-sig'))
+            return json.loads(output.lstrip('﻿'))
         except ValueError:
             raise MSDHCPError('MSDHCP: {0} did not return JSON'.format(
                 server)) from None

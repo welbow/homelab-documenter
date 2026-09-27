@@ -2,4 +2,4 @@ dominate
 python-nmap
 tzdata
 cryptography
-pywinrm
+pypsrp

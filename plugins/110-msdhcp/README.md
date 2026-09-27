@@ -17,7 +17,7 @@ Two ways to read the server; both use the same script,
 
 | Mode | How | Needs |
 |---|---|---|
-| `winrm` (default) | The engine runs the script on the server over WinRM (PowerShell remoting), every run. | WinRM on the server (on by default on Windows Server), a read-only account, its credentials stored here. |
+| `winrm` (default) | The engine runs the script on the server over WinRM with PowerShell remoting (like `Invoke-Command`), every run. | WinRM on the server (on by default on Windows Server), a read-only account, its credentials stored here. |
 | `file` | You run the script on the server (e.g. a scheduled task) and put its JSON in the content repo. | Nothing in the engine; the data is as fresh as the last export. |
 
 ```json
@@ -141,5 +141,5 @@ it in the private content repo like the rest.
 | `denied WMI access to the DHCP namespace` | Run grant-dhcp-wmi-access.ps1 on the server (above). |
 | `denied reading DHCP: add the account to the DHCP Users group` | Add it; group changes apply to new logins, so it may take a few minutes. |
 | `can't reach WinRM on ...` | Check `server`; run `Test-WSMan` against it; the Windows Firewall must allow WinRM (5985/5986) from your Docker host. |
-| `the image has no pywinrm` | Rebuild the image: `docker compose build`. |
+| `the image has no pypsrp` | Rebuild the image: `docker compose build`. |
 | `no export at input/MSDHCP/...` | `file` mode: run the export (above). |
