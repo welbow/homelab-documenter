@@ -301,13 +301,15 @@ def test_restart_notes(tmp_path, monkeypatch):
     monkeypatch.setattr(reloader, 'APP_DIR', str(app))
     monkeypatch.setattr(reloader, 'IMAGE_DEPS_DIR', str(image))
     monkeypatch.setattr(reloader, '_started', {
-        name: reloader._mtime(name) for name in reloader.SERVER_FILES})
+        name: reloader._digest(name) for name in reloader.SERVER_FILES})
     assert reloader.restart_notes() == [
         'requirements.txt changed since the image was built: run docker '
         'compose build, then restart the preview']
 
-    stat = os.stat(app / 'delivery.py')
-    os.utime(app / 'delivery.py', (stat.st_atime, stat.st_mtime + 5))
+    # rewritten unchanged (e.g. by a git checkout): not a change
+    stat = os.stat(app / 'reloader.py')
+    os.utime(app / 'reloader.py', (stat.st_atime, stat.st_mtime + 5))
+    (app / 'delivery.py').write_text('y')
     (image / 'requirements.txt').write_text('dominate\npypsrp\n')
 
     assert reloader.restart_notes() == [

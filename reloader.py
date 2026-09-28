@@ -2,6 +2,7 @@
 the next rebuild without restarting the container. It only helps when the
 engine folder is mounted over /app (see docker-compose.override.yml.example);
 otherwise the container runs the code baked into the image."""
+import hashlib
 import importlib
 import os
 import sys
@@ -25,15 +26,19 @@ IMAGE_DEPS_DIR = '/usr/local/share/homelab-documenter'
 DEPS_FILES = ('requirements.txt', 'apt-pkgs.txt')
 
 
-def _mtime(name):
+def _digest(name):
+    """The file's content hash: by content, not time, so a checkout that
+    rewrites a file unchanged doesn't count as a change."""
     try:
-        return os.stat(os.path.join(APP_DIR, name)).st_mtime
+        with open(os.path.join(APP_DIR, name), 'rb') as f:
+            text = f.read().replace(b'\r\n', b'\n')
+        return hashlib.sha256(text).hexdigest()
     except OSError:
         return None
 
 
 # When the preview started (this module is imported then)
-_started = {name: _mtime(name) for name in SERVER_FILES}
+_started = {name: _digest(name) for name in SERVER_FILES}
 
 
 def available():
@@ -68,7 +73,8 @@ def refresh_vars(path=None):
 def restart_notes():
     """What a code reload can't pick up, for the Rebuild panel's notes."""
     notes = []
-    changed = [name for name in SERVER_FILES if _mtime(name) != _started[name]]
+    changed = [name for name in SERVER_FILES
+               if _digest(name) != _started[name]]
     if changed:
         notes.append('{0} changed since the preview started: restart the '
                      'preview to use {1}'.format(
