@@ -206,7 +206,7 @@ your environment; each is off unless its config section enables it.
 | 120 | [CiscoSwitches](plugins/120-cisco-switches/README.md) | Reads Cisco switches over SNMP: ports, MAC tables, port-channels, neighbours (optional; Cisco only). |
 | 150 | [OPNsense](plugins/150-opnsense/README.md) | Adds devices from an OPNsense firewall's ARP table, with MAC addresses, vendors and interfaces (optional; only if you use OPNsense). |
 | 500 | [BitwardenPasswords](plugins/500-bitwarden-passwords/README.md) | Lists the items in a Bitwarden vault (optional; only if you use Bitwarden). |
-| 800 | [PortMap](plugins/800-port-map/README.md) | Works out which switch port each device is plugged into, from what the other plugins found, and adds the Switch ports section. |
+| 800 | [PortMap](plugins/800-port-map/README.md) | Works out which switch port each device is plugged into, from what the other plugins found, and adds the Switch Ports section. |
 | 900 | [OutputCredInfo](plugins/900-output-cred-info/README.md) | Renders the credential tables that password plugins collect. |
 | 900 | [OutputHostInfo](plugins/900-output-host-info/README.md) | Renders the device table. |
 | 950 | [TableOfContents](plugins/950-generate-table-of-contents/README.md) | Builds the table of contents, after every other section exists. |

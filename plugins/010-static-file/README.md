@@ -8,8 +8,8 @@ Adds your hand-written pages to the packet: introductions, instructions,
   "enabled": 1,
   "files": [
     {"seq_number": "002", "title": "", "file": "confidential.html", "hide_surround": 1},
-    {"seq_number": "010", "title": "Start here", "file": "start-here.html"},
-    {"seq_number": "020", "title": "Router notes", "file": "router.txt"}
+    {"seq_number": "010", "title": "Start Here", "file": "start-here.html"},
+    {"seq_number": "020", "title": "Router Notes", "file": "router.txt"}
   ]
 }
 ```

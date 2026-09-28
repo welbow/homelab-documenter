@@ -134,7 +134,7 @@ def test_long_and_short_names_match(switch):
 
 def test_switch_ports_section(switch):
     vars.config = {'plugins': {'PortMap': {
-        'section': {'title': 'Switch ports', 'seq_number': '956'}}}}
+        'section': {'title': 'Switch Ports', 'seq_number': '956'}}}}
 
     run()
 

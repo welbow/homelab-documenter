@@ -9,7 +9,7 @@ the plugin's class name. A plugin runs only if its section exists and has
   "log_level": "INFO",
   "plugins": {
     "StaticFile": {"enabled": 1, "files": [
-      {"seq_number": "010", "title": "Start here", "file": "start-here.html"}
+      {"seq_number": "010", "title": "Start Here", "file": "start-here.html"}
     ]},
     "TableOfContents": {"enabled": 1, "seq_number": "005", "title": "Contents"},
     "HTMLOutput": {"enabled": 1, "outputfile": "homelab-packet-{date}.html",

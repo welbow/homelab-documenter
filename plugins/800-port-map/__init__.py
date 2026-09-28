@@ -36,7 +36,7 @@ def port_order(name):
 
 class PortMap (Plugin):
     """Joins up what the discovery plugins found about switch ports and
-    devices (#19), and adds the Switch ports section: which host or device
+    devices (#19), and adds the Switch Ports section: which host or device
     interface is on each port.
 
     - Port-channels: a member port's neighbour counts for its channel, and
@@ -242,7 +242,7 @@ class PortMap (Plugin):
             for switch in switches:
                 h2(switch)
                 self._switch_table(switch)
-        self.addOutput(d, title=section.get('title', 'Switch ports'),
+        self.addOutput(d, title=section.get('title', 'Switch Ports'),
                        seq=section.get('seq_number', '970'),
                        keyname='switch-ports')
 

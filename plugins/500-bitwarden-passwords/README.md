@@ -10,7 +10,7 @@ usernames, passwords and URLs, for the credentials appendix.
   "queries": [
     {"title": "Appendix B - Passwords", "header": "All passwords except work",
      "seq_number": "960", "exclude_folders": ["Work"]},
-    {"title": "Appendix C - Home network", "header": "Network gear",
+    {"title": "Appendix C - Home Network", "header": "Network gear",
      "seq_number": "970", "include_folders": "Network"}
   ]
 }

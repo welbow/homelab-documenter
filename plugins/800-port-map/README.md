@@ -2,13 +2,13 @@
 
 Joins up what the discovery plugins found about switch ports, devices and
 hosts: which switch port each host (or device interface) is plugged into.
-Adds the device table's **Connected to** column and the **Switch ports**
+Adds the device table's **Connected to** column and the **Switch Ports**
 section. On by default; it has nothing to do until a switch plugin (e.g.
 [CiscoSwitches](../120-cisco-switches/README.md)) reports ports.
 
 ```json
 "PortMap": {
-  "section": {"title": "Appendix C - Switch ports", "seq_number": "970",
+  "section": {"title": "Appendix C - Switch Ports", "seq_number": "970",
               "header": "Which device is on each switch port"}
 }
 ```
@@ -16,7 +16,7 @@ section. On by default; it has nothing to do until a switch plugin (e.g.
 | Key | Required | Meaning |
 |---|---|---|
 | `enabled` | no | `0` turns it off. |
-| `section` | no | The Switch ports section, an appendix like the device and credential tables: `title` (default "Switch ports"; name it like your other appendices, e.g. "Appendix C - Switch ports"), `seq_number` (default `970`, after the device (950) and credential (960+) appendices) and `header`; `0` leaves the section out (Connected to still fills in). |
+| `section` | no | The Switch Ports section, an appendix like the device and credential tables: `title` (default "Switch Ports"; name it like your other appendices, e.g. "Appendix C - Switch Ports"), `seq_number` (default `970`, after the device (950) and credential (960+) appendices) and `header`; `0` leaves the section out (Connected to still fills in). |
 
 It runs on every rebuild, after all discovery (its number is in the 800s,
 see [plugins.md](../../docs/plugins.md)).
@@ -46,7 +46,7 @@ see [plugins.md](../../docs/plugins.md)).
 - A host alone on a port gets the port's description as its **Name**,
   unless something else named it; a host override always wins.
 
-**The Switch ports section:** one table per switch, every port (members
+**The Switch Ports section:** one table per switch, every port (members
 under their channel): Port, Description, Status, Speed, VLAN, Mode,
 Connected to (the host's name and address, the device interface, or the
 uplink's neighbour).

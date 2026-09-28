@@ -89,7 +89,7 @@ class CiscoSwitches (Plugin):
     switch) with its L3 interfaces (VLAN interfaces with an address) and
     address rows, and its ports (description, status, speed, VLAN, mode,
     port-channel membership, CDP/LLDP neighbour, learned MAC addresses) for
-    the port map and the Switch ports section. Cisco only: tested with a
+    the port map and the Switch Ports section. Cisco only: tested with a
     Catalyst 2960 (classic IOS: MAC tables per VLAN) and a CBS350
     (Q-BRIDGE-MIB). Shown as "CiscoSwitches" in the Seen by column."""
     expensive = True

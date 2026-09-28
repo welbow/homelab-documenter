@@ -36,7 +36,7 @@ class StaticFile (Plugin):
 
             self.addOutput(
                 output=output, 
-                title=staticfile.get('title', 'No title specified'), 
+                title=staticfile.get('title', 'No Title Specified'), 
                 seq=staticfile.get('seq_number', None),
                 keyname=staticfile.get('key_name') or
                         default_keyname(staticfile['file']),

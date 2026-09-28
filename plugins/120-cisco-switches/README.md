@@ -2,7 +2,7 @@
 
 Reads **Cisco switches** over SNMP: each switch's ports, its MAC address
 table, port-channels and CDP/LLDP neighbours, for the device table's
-**Connected to** column and the **Switch ports** section (both from
+**Connected to** column and the **Switch Ports** section (both from
 [PortMap](../800-port-map/README.md)). Cisco only: MIBs differ between
 vendors. Tested with a Catalyst 2960 (classic IOS) and a CBS350.
 

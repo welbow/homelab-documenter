@@ -135,7 +135,11 @@ Three digits are a readable convention. A typical layout:
 | 010-899 | Your pages and plugin sections |
 | 950 | Appendix: devices |
 | 960+ | Appendices: credentials |
-| 970 | Appendix: switch ports |
+| 970 | Appendix: Switch Ports |
+
+Section titles are in Title Case ("Appendix C - Switch Ports", "Start
+Here"): in config.json examples, and in any default title a plugin gives
+its section.
 
 Each section's key is `<seq_number>-<keyname>`, which is also its anchor
 in the page (e.g. `#010-static-file-start-here`). Sections sharing a

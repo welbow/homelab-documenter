@@ -5,9 +5,9 @@
             "enabled": 1,
             "files": [
                 {"seq_number": "002", "title": "", "file": "confidential.html", "hide_surround": 1},
-                {"seq_number": "010", "title": "Start here", "file": "start-here.html"},
-                {"seq_number": "020", "title": "Getting into the file server", "file": "file-server.html"},
-                {"seq_number": "030", "title": "Network notes", "file": "network-notes.txt"}
+                {"seq_number": "010", "title": "Start Here", "file": "start-here.html"},
+                {"seq_number": "020", "title": "Getting Into the File Server", "file": "file-server.html"},
+                {"seq_number": "030", "title": "Network Notes", "file": "network-notes.txt"}
             ]
         },
         "HostOverrides": {
@@ -46,7 +46,7 @@
             ]
         },
         "PortMap": {
-            "section": {"title": "Appendix C - Switch ports", "seq_number": "970"}
+            "section": {"title": "Appendix C - Switch Ports", "seq_number": "970"}
         },
         "OutputHostInfo": {
             "enabled": 1,
