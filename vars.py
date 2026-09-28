@@ -62,6 +62,14 @@ recording = None
 # What the last run did: {'ran': [...], 'replayed': [...], 'notes': [...]}
 last_run = {}
 
+# The names above that hold live state. A code reload (#30) re-reads this
+# file but keeps their current values; everything else (definitions such
+# as hosts_keys, and the functions below) comes from the file anew. A new
+# state variable goes here too.
+STATE = ('data_dir', 'build_dir', 'page', 'config', 'hosts', 'creds',
+         'output', 'skipped', 'stamp', 'keep_alive', 'cleanups', 'sessions',
+         'plugin_cache', 'recording', 'last_run')
+
 
 def section_keys():
     """The keys of output in packet order. Keys are "<seq_number>-<keyname>";

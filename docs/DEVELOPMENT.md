@@ -59,9 +59,13 @@ folder as `/app` (the commented example in
 - If the new code fails (e.g. a syntax error), the panel shows the error
   and the page from the last good run stays; fix the code and rebuild.
 - Kept sessions (e.g. an unlocked vault) and cached results survive a
-  reload. The preview server itself isn't reloaded; restart for changes to
-  `delivery.py` or `homelab-documenter.py`, and to `vars.py` (the shared
-  state, e.g. a new device table column).
+  reload. `vars.py` is re-read too (e.g. a new device table column), keeping
+  its live state; a new state variable goes in `vars.STATE`.
+- Two things still need more than a reload, and the panel's notes say so
+  when it sees them: the preview server itself (`delivery.py`,
+  `homelab-documenter.py`, `reloader.py`: restart), and new dependencies
+  (`requirements.txt`, `apt-pkgs.txt`: `docker compose build`, then
+  restart).
 - Without the mount, **Reload code first** is greyed out, with a tooltip
   explaining why.
 - The mount is read-only, so the container can't change your checkout.

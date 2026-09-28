@@ -217,3 +217,76 @@ def test_reload_is_available_only_with_the_code_mounted(monkeypatch):
     monkeypatch.setattr(reloader.delivery, 'is_mount_point',
                         lambda path: path == reloader.APP_DIR)
     assert reloader.available() == (True, '')
+
+
+# --- re-reading vars (#30) ---------------------------------------------------
+
+@pytest.fixture
+def vars_copy(tmp_path):
+    """A copy of vars.py to edit; the real vars module is restored after."""
+    saved = dict(vars.__dict__)
+    path = tmp_path / 'vars.py'
+    with open(vars.__file__, encoding='utf-8') as f:
+        path.write_text(f.read(), encoding='utf-8')
+    yield path
+    vars.__dict__.clear()
+    vars.__dict__.update(saved)
+
+
+def test_reload_takes_new_definitions_and_keeps_state(vars_copy,
+                                                       monkeypatch):
+    sessions = {'bitwarden': {'session': 'kept'}}
+    monkeypatch.setattr(vars, 'sessions', sessions)
+    monkeypatch.setattr(vars, 'plugin_cache', {'010-static-file': {}})
+    text = vars_copy.read_text(encoding='utf-8')
+    vars_copy.write_text(text.replace(
+        "    'Notes': 'notes'\n", "    'Notes': 'notes',\n    'Room': 'room'\n")
+        + '\nnew_setting = 42\n', encoding='utf-8')
+
+    reloader.refresh_vars(str(vars_copy))
+
+    assert vars.hosts_keys['Room'] == 'room'          # definition: new
+    assert vars.new_setting == 42                     # new name: added
+    assert vars.sessions is sessions                  # state: kept
+    assert vars.plugin_cache == {'010-static-file': {}}
+    vars.reset()                                      # functions still work
+    assert vars.hosts == {} and vars.sessions is sessions
+
+
+def test_broken_vars_leaves_vars_as_it_was(vars_copy):
+    before = dict(vars.__dict__)
+    vars_copy.write_text(vars_copy.read_text(encoding='utf-8')
+                         + '\nhosts_keys = {\n', encoding='utf-8')
+
+    with pytest.raises(SyntaxError):
+        reloader.refresh_vars(str(vars_copy))
+
+    assert vars.__dict__ == before
+
+
+def test_restart_notes(tmp_path, monkeypatch):
+    app = tmp_path / 'app'
+    app.mkdir()
+    image = tmp_path / 'image'
+    image.mkdir()
+    for name in reloader.SERVER_FILES:
+        (app / name).write_text('x')
+    (app / 'requirements.txt').write_text('dominate\npypsrp\n')
+    (app / 'apt-pkgs.txt').write_text('nmap\n')
+    (image / 'requirements.txt').write_text('dominate\r\npywinrm\r\n')
+    (image / 'apt-pkgs.txt').write_text('nmap\r\n')   # same, other endings
+    monkeypatch.setattr(reloader, 'APP_DIR', str(app))
+    monkeypatch.setattr(reloader, 'IMAGE_DEPS_DIR', str(image))
+    monkeypatch.setattr(reloader, '_started', {
+        name: reloader._mtime(name) for name in reloader.SERVER_FILES})
+    assert reloader.restart_notes() == [
+        'requirements.txt changed since the image was built: run docker '
+        'compose build, then restart the preview']
+
+    stat = os.stat(app / 'delivery.py')
+    os.utime(app / 'delivery.py', (stat.st_atime, stat.st_mtime + 5))
+    (image / 'requirements.txt').write_text('dominate\npypsrp\n')
+
+    assert reloader.restart_notes() == [
+        'delivery.py changed since the preview started: restart the preview '
+        'to use it']

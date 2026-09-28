@@ -59,6 +59,9 @@ if __name__ == '__main__':
         if code['pipeline'].main(skip=args.skip, only=only) != 0 \
                 or vars.page is None:
             raise RuntimeError('no page was generated (see the preview log)')
+        if reload:
+            vars.last_run.setdefault('notes', []).extend(
+                reloader.restart_notes())
         return vars.page
 
     def options():

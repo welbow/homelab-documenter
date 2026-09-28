@@ -35,7 +35,9 @@ COPY apt-pkgs.txt requirements.txt ./
 RUN apt-get update \
  && xargs -a apt-pkgs.txt apt-get install -y --no-install-recommends \
  && rm -rf /var/lib/apt/lists/* \
- && pip install --no-cache-dir -r requirements.txt
+ && pip install --no-cache-dir -r requirements.txt \
+ && mkdir -p /usr/local/share/homelab-documenter \
+ && cp apt-pkgs.txt requirements.txt /usr/local/share/homelab-documenter/
 
 # Outside /app, so the engine folder can be mounted over /app while
 # developing (#25), and on the PATH for every process, including a dev shell
