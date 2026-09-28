@@ -171,6 +171,7 @@ def test_scope_descriptions_fill_the_opnsense_purpose(content, monkeypatch):
             {'identifier': 'opt1', 'description': 'IoT', 'device': 'igb2',
              'enabled': True, 'addr4': '198.51.100.1/24'}]},
         'diagnostics/interface/get_arp': [],
+        'diagnostics/system/system_information': {'name': 'fw.example.com'},
     }
 
     class Response:
