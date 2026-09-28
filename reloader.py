@@ -77,7 +77,7 @@ def restart_notes():
                if _digest(name) != _started[name]]
     if changed:
         notes.append('{0} changed since the preview started: restart the '
-                     'preview to use {1}'.format(
+                     'preview (Ctrl-C, then hd preview) to use {1}'.format(
                          ', '.join(changed),
                          'it' if len(changed) == 1 else 'them'))
     stale = []
@@ -90,9 +90,9 @@ def restart_notes():
             if a.read().split() != b.read().split():
                 stale.append(name)
     if stale:
-        notes.append('{0} changed since the image was built: run docker '
-                     'compose build, then restart the preview'.format(
-                         ', '.join(stale)))
+        notes.append('{0} changed since the image was built: stop the '
+                     'preview and start it again with hd preview, which '
+                     'rebuilds the image'.format(', '.join(stale)))
     return notes
 
 

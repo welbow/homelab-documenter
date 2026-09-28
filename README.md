@@ -69,12 +69,16 @@ Linux. Running natively on Windows is not supported.
 3. Optionally copy `.env.example` to `.env` for settings like `TZ`,
    `LOG_LEVEL` or `SKIP_PLUGINS`. It holds no secrets.
 
-4. Build the image and preview the example packet:
+4. Preview the example packet (the first run builds the image, which
+   takes a few minutes):
 
    ```
-   docker compose build
-   docker compose run --rm --service-ports preview
+   hd preview
    ```
+
+   `hd` is a small wrapper in this repo (`hd.cmd` on Windows, `./hd` on
+   Linux and macOS; `hd help` lists its commands). From another folder,
+   give its path, e.g. `..\homelab-documenter\hd preview`.
 
    Open <http://127.0.0.1:8000>, read it, print it from the browser (use
    "Save as PDF" for a PDF).
@@ -86,14 +90,18 @@ Linux. Running natively on Windows is not supported.
 
 ## Everyday use
 
-Always use `docker compose run --rm`, so no container (and nothing in it)
-is left behind.
-
 | Command | What it does |
 |---|---|
-| `docker compose run --rm --service-ports preview` | Generates the packet and serves it on <http://127.0.0.1:8000> until Ctrl-C. |
-| `docker compose run --rm build` | Generates the packet and copies it, plus everything in `output/`, to the folder mounted at `/export`. |
-| `docker compose run --rm secrets <set\|list\|check\|remove> [name]` | Manages encrypted credentials. |
+| `hd preview` | Generates the packet and serves it on <http://127.0.0.1:8000> until Ctrl-C. |
+| `hd build` | Generates the packet and copies it, plus everything in `output/`, to the folder mounted at `/export`. |
+| `hd secret <set\|list\|check\|remove> [name]` | Manages encrypted credentials. `hd secrets ...` works the same, on purpose. |
+| `hd help` | Lists the commands. |
+
+Each command first rebuilds the image if anything changed (quietly, and
+instantly when nothing did; if it can't, e.g. offline, it uses the image
+you have), and leaves no container behind. Under the hood they're
+`docker compose run --rm ...` (see
+[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md#the-hd-wrapper)).
 
 **Preview.** The page is generated in memory (a tmpfs) and served only on
 this machine (127.0.0.1). The **Rebuild** button in the bottom-right corner
@@ -115,11 +123,11 @@ like an old packet (`output.html`, `homelab-packet-*.html`, which would
 hold outdated passwords), and refuses a run that skipped plugins unless
 you add `--force`.
 
-**Options.** Anything after the service name is added to its options, e.g.
+**Options.** Anything after the command is added to its options, e.g.
 
 ```
-docker compose run --rm --service-ports preview --skip 100
-docker compose run --rm build --skip NmapPingScan --force
+hd preview --skip 100
+hd build --skip NmapPingScan --force
 ```
 
 `--skip` (or `SKIP_PLUGINS` in `.env`) skips plugins by number (`100`),
@@ -141,14 +149,15 @@ Any plugin that needs a password, API key or token gets it the same way,
 on every OS. Each plugin's README lists the names it uses; for example:
 
 ```
-docker compose run --rm secrets set example_api_token   # prompts twice, nothing echoed
-docker compose run --rm secrets list                    # names only
-docker compose run --rm secrets check                   # can each one be decrypted?
-docker compose run --rm secrets remove example_api_token
+hd secret set example_api_token   # prompts twice, nothing echoed
+hd secret list                    # names only
+hd secret check                   # can each one be decrypted?
+hd secret remove example_api_token
 ```
 
-Values can also be piped in (`... | docker compose run --rm -T secrets set
-name`); they are never printed.
+Values can also be piped in (`... | ./hd secret set name` on Linux and
+macOS; `... | docker compose run --rm -T secrets set name` anywhere); they
+are never printed.
 
 How it works:
 

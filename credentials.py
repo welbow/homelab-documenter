@@ -39,6 +39,11 @@ def secrets_dir():
         os.path.join(vars.data_dir, 'secrets')
 
 
+def set_command(name):
+    """The command that stores credential name, for messages."""
+    return 'hd secret set ' + name
+
+
 def check_name(name):
     if not NAME.match(name or ''):
         raise ValueError('Invalid credential name {0!r}: use lowercase '
@@ -114,15 +119,15 @@ def get(name):
     if key is None:
         raise RuntimeError(
             'Credential {0!r} is set, but this install has no key in {1} '
-            '(new or reset keys volume?). Set it again: docker compose run '
-            '--rm secrets set {0}'.format(name, hostpath.describe(keys_dir())))
+            '(new or reset keys volume?). Set it again: {2}'.format(
+                name, hostpath.describe(keys_dir()), set_command(name)))
     with open(path, encoding='utf-8') as f:
         record = json.load(f)
     if record.get('key') != _fingerprint(key.public_key()):
         raise RuntimeError(
             'Credential {0!r} was encrypted for a different key (the keys '
-            'volume changed?). Set it again: docker compose run --rm '
-            'secrets set {0}'.format(name))
+            'volume changed?). Set it again: {1}'.format(
+                name, set_command(name)))
     try:
         data_key = key.decrypt(base64.b64decode(record['sealed_key']), OAEP)
         value = AESGCM(data_key).decrypt(

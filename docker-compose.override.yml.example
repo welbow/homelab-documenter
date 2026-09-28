@@ -53,7 +53,7 @@ services:
       #   Linux:                     '/media/you/USBSTICK:/export'
       - 'E:/:/export'
 
-  # Where `docker compose run --rm secrets set ...` writes (read-write)
+  # Where `hd secret set ...` writes (read-write)
   secrets:
     volumes:
       - '../my-homelab-content/secrets/:/app/secrets/'

@@ -81,7 +81,7 @@ class OPNsense (Plugin):
             raise OPNsenseError(
                 'OPNsense: credential {0} not set. Store it with: {1}'.format(
                     ' and '.join(missing),
-                    '; '.join('docker compose run --rm secrets set ' + name
+                    '; '.join(credentials.set_command(name)
                               for name in missing)))
         # Basic auth header built here and passed only to urllib, so the
         # key and secret never reach a log line or an error message

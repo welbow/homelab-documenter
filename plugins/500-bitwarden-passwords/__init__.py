@@ -83,10 +83,10 @@ class BitwardenPasswords (Plugin):
             raise RuntimeError(
                 'The vault is locked, the bw_master_password credential is '
                 'not set, and there is no terminal to ask for it. Store it '
-                'with: docker compose run --rm secrets set bw_master_password')
+                'with: ' + credentials.set_command('bw_master_password'))
         self._logger.info('Unlocking vault; enter your master password (or '
-                          'store it: docker compose run --rm secrets set '
-                          'bw_master_password)')
+                          'store it: {0})'.format(
+                              credentials.set_command('bw_master_password')))
         return self._bw('unlock', '--raw', interactive=True).strip()
 
     def _login_and_unlock(self):
@@ -162,8 +162,8 @@ class BitwardenPasswords (Plugin):
         if 'client_id' in self._config or 'client_secret' in self._config:
             self._logger.warning('client_id/client_secret in config.json are '
                                  'ignored; remove them and store the key with '
-                                 '`docker compose run --rm secrets set '
-                                 'bw_clientid` / bw_clientsecret')
+                                 '`{0}` / bw_clientsecret'.format(
+                                     credentials.set_command('bw_clientid')))
         if os.environ.get('BW_CLIENTID') or os.environ.get('BW_CLIENTSECRET'):
             self._logger.warning('BW_CLIENTID/BW_CLIENTSECRET in the '
                                  'environment are ignored; the encrypted '
@@ -186,7 +186,7 @@ class BitwardenPasswords (Plugin):
                 'Bitwarden API key not stored ({0}). Store it with: {1} '
                 '(see .env.example for where to find the key)'.format(
                     ', '.join(missing),
-                    ' and '.join('docker compose run --rm secrets set ' + n
+                    ' and '.join(credentials.set_command(n)
                                  for n in missing)))
 
         reusing = False

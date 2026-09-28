@@ -1,5 +1,6 @@
 # Development
 
+- [The hd wrapper](#the-hd-wrapper)
 - [Running the tests](#running-the-tests)
 - [Working on content quickly](#working-on-content-quickly)
 - [Working on the engine with a running preview](#working-on-the-engine-with-a-running-preview)
@@ -7,15 +8,41 @@
 - [Section numbering (seq_number)](#section-numbering-seq_number)
 - [Writing a plugin](#writing-a-plugin)
 
+## The hd wrapper
+
+`hd.cmd` (Windows) and `hd` (Linux/macOS) are the everyday commands. Each
+one rebuilds the image quietly (`docker compose build -q <service>`; if
+that fails, e.g. offline, it carries on with the current image), then
+runs:
+
+| hd | docker compose |
+|---|---|
+| `hd preview [options]` | `docker compose run --rm --service-ports preview [options]` |
+| `hd build [options]` | `docker compose run --rm build [options]` |
+| `hd secret ...` (or `hd secrets ...`) | `docker compose run --rm secrets ...` (`-T` added when a value is piped in, `hd` only) |
+| `hd test [pytest options]` | `docker compose run --rm test [pytest options]` |
+
+Always `run --rm`, so no container (and nothing in it) is left behind, and
+`--service-ports` for the preview, since `run` doesn't publish ports
+without it. `docker compose up` isn't used: it has no terminal for the
+prompts (`secret set`, a Bitwarden password that isn't stored).
+`secret` and `secrets` are the same command on purpose (the service is
+`secrets`, and either is natural to type); keep both when changing the
+scripts. `tests/test_hd.py` checks both scripts run the same commands, on
+services that exist in docker-compose.yml, and accept both spellings.
+Docker Desktop on Windows sometimes prints a harmless "http2: ... error
+reading preface from client" line; the wrappers drop it from the rebuild
+step's output (any other output is shown).
+
 ## Running the tests
 
 In the image, as CI does:
 
 ```
-docker compose run --rm test
+hd test
 ```
 
-Extra arguments go to pytest, e.g. `docker compose run --rm test -k host -x`.
+Extra arguments go to pytest, e.g. `hd test -k host -x`.
 
 Locally (Python 3.12):
 
@@ -49,7 +76,7 @@ code changes without restarting, run it on your checkout instead: in
 folder as `/app` (the commented example in
 `docker-compose.override.yml.example` shows the volumes). Then:
 
-1. `docker compose run --rm --service-ports preview` as usual.
+1. `hd preview` as usual.
 2. Edit a plugin or the engine.
 3. In the Rebuild panel, tick **Reload code first** and rebuild (partly or
    fully). The engine and every plugin are imported again, so new plugin
@@ -64,8 +91,8 @@ folder as `/app` (the commented example in
 - Two things still need more than a reload, and the panel's notes say so
   when it sees them: the preview server itself (`delivery.py`,
   `homelab-documenter.py`, `reloader.py`: restart), and new dependencies
-  (`requirements.txt`, `apt-pkgs.txt`: `docker compose build`, then
-  restart).
+  (`requirements.txt`, `apt-pkgs.txt`: restart; `hd preview` rebuilds the
+  image).
 - Without the mount, **Reload code first** is greyed out, with a tooltip
   explaining why.
 - The mount is read-only, so the container can't change your checkout.
@@ -158,7 +185,8 @@ def getPlugin():
   (`subnet` in CIDR form, e.g. `name`, `purpose`) in `vars.networks`, for
   plugins that describe networks.
 - `credentials.get(name)` returns a stored credential (or None); tell
-  users to store it with `docker compose run --rm secrets set <name>`.
+  users to store it with `hd secret set <name>`, and use
+  `credentials.set_command(name)` for that in messages.
   Never log it or put it on a command line or in an environment variable
   that outlives the call.
 - `getInputFilePath(name)` is `input/<ClassName>/<name>` in the content

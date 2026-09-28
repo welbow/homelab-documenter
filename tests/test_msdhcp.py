@@ -306,7 +306,7 @@ def test_missing_credentials(winrm, tmp_path):
     (tmp_path / 'secrets' / 'msdhcp_password.enc').unlink()
 
     with pytest.raises(msdhcp.MSDHCPError,
-                       match='secrets set msdhcp_password'):
+                       match='hd secret set msdhcp_password'):
         run()
     assert winrm.clients == []
 

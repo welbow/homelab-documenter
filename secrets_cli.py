@@ -1,11 +1,13 @@
 #!/usr/bin/python3
-"""Manage encrypted credentials (#22). Run through compose:
+"""Manage encrypted credentials (#22). Run through the hd wrapper (#29):
 
-    docker compose run --rm secrets set bw_master_password   # prompts
-    ... | docker compose run --rm -T secrets set bw_clientsecret   # piped
-    docker compose run --rm secrets list
-    docker compose run --rm secrets check
-    docker compose run --rm secrets remove bw_clientsecret
+    hd secret set bw_master_password          # prompts
+    ... | ./hd secret set bw_clientsecret     # piped (Linux/macOS)
+    hd secret list
+    hd secret check
+    hd secret remove bw_clientsecret
+
+(hd runs `docker compose run --rm secrets ...`.)
 
 Values are never printed."""
 import argparse

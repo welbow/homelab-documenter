@@ -17,7 +17,7 @@ network scan, firewall, DHCP server) are switched off until you set them up.
    `docker-compose.override.yml.example` to `docker-compose.override.yml`
    and set the paths to your clone.
 3. Preview the example packet from the engine repo:
-   `docker compose run --rm --service-ports preview`, then open
+   `hd preview`, then open
    <http://127.0.0.1:8000>.
 4. Replace the example pages and settings with your own, using the
    preview's Rebuild button to see each change.
@@ -30,7 +30,7 @@ input/StaticFile/       your hand-written pages (HTML, or plain text)
 input/HostOverrides/    host-overrides.csv: names, types and notes per device
 output/                 files shipped with the packet, e.g. standard.css
 secrets/                encrypted credentials, created by the engine's
-                        `docker compose run --rm secrets set <name>`
+                        `hd secret set <name>`
 ```
 
 Each plugin's settings and input formats are described in the engine's
@@ -39,7 +39,7 @@ so 5 comes before 10).
 
 To turn on a plugin that needs credentials (for example a password
 manager plugin), set `"enabled": 1` in its section, fill in its settings,
-and store what it needs with `docker compose run --rm secrets set <name>`
+and store what it needs with `hd secret set <name>`
 (its README lists the names).
 
 ## Keeping secrets here

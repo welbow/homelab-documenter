@@ -118,8 +118,8 @@ Invoke-Command -ComputerName dc1.example.com -Credential EXAMPLE\svc-homelab-doc
 Then store the credentials (each command prompts for the value):
 
 ```
-docker compose run --rm secrets set msdhcp_username
-docker compose run --rm secrets set msdhcp_password
+hd secret set msdhcp_username
+hd secret set msdhcp_password
 ```
 
 The container reaches the server by name, so it needs your DNS servers
@@ -147,5 +147,5 @@ it in the private content repo like the rest.
 | `denied WMI access to the DHCP namespace` | Run grant-dhcp-wmi-access.ps1 on the server (above). |
 | `denied reading DHCP: add the account to the DHCP Users group` | Add it; group changes apply to new logins, so it may take a few minutes. |
 | `can't reach WinRM on ...` | Check `server`; run `Test-WSMan` against it; the Windows Firewall must allow WinRM (5985/5986) from your Docker host. |
-| `the image has no pypsrp` | Rebuild the image: `docker compose build`. |
+| `the image has no pypsrp` | Restart the preview with `hd preview`, which rebuilds the image. |
 | `no export at input/MSDHCP/...` | `file` mode: run the export (above). |

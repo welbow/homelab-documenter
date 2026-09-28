@@ -4,3 +4,7 @@
 *.sh        text eol=lf
 *.txt       text eol=lf
 Dockerfile  text eol=lf
+# Windows batch files need CRLF (labels and goto misbehave with LF)
+*.cmd       text eol=crlf
+# The Linux/macOS wrapper runs in sh
+hd          text eol=lf

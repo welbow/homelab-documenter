@@ -229,7 +229,7 @@ def test_missing_credentials_say_how_to_store_them(firewall, tmp_path):
     with pytest.raises(opnsense.OPNsenseError) as error:
         run()
 
-    assert 'docker compose run --rm secrets set opnsense_api_secret' \
+    assert 'hd secret set opnsense_api_secret' \
         in str(error.value)
     assert firewall.requests == []
 

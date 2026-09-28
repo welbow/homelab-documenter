@@ -1,0 +1,63 @@
+#!/bin/sh
+# homelab-documenter's everyday commands (#29), so nobody has to remember
+# the docker compose flags. Run from anywhere: ./hd help
+# Every command rebuilds the image first if something changed.
+set -e
+cd "$(dirname "$0")"
+
+usage() {
+    cat <<'EOF'
+Usage: ./hd <command> [options]
+
+  preview              Generate the packet and serve it on
+                       http://127.0.0.1:8000 until Ctrl-C
+  build                Generate the packet and export it (to /export, see
+                       docker-compose.override.yml.example)
+  secret set NAME      Store a credential (prompts; nothing is echoed)
+  secret list          List the stored credentials (names only)
+  secret check         Check each can be decrypted
+  secret remove NAME   Remove a credential
+                       (secrets works too: ./hd secrets list)
+  test                 Run the test suite (extra options go to pytest)
+  help                 This list
+
+Extra options go to the command, e.g. ./hd preview --skip 500
+EOF
+}
+
+command=${1:-help}
+[ $# -gt 0 ] && shift
+
+# Rebuild the image if something changed (quietly; a no-op when nothing
+# did). If that fails, e.g. offline, carry on with the image there is.
+# Docker Desktop on Windows (e.g. Git Bash) prints a harmless "http2: ...
+# error reading preface from client" line now and then; that line is left
+# out, any other output is shown.
+refresh() {
+    if out=$(docker compose build -q "$1" 2>&1); then built=0; else built=1; fi
+    printf '%s\n' "$out" | grep -v 'error reading preface from client' |
+        grep -v '^$' >&2 || true
+    [ "$built" = 0 ] ||
+        echo "hd: couldn't rebuild the image (offline?); using the current one" >&2
+}
+
+case "$command" in
+    preview) refresh preview
+             exec docker compose run --rm --service-ports preview "$@" ;;
+    build)   refresh build
+             exec docker compose run --rm build "$@" ;;
+    secret|secrets)
+        refresh secrets
+        # A value piped in (e.g. from a password manager) needs -T
+        if [ -t 0 ]; then
+            exec docker compose run --rm secrets "$@"
+        else
+            exec docker compose run --rm -T secrets "$@"
+        fi ;;
+    test)    refresh test
+             exec docker compose run --rm test "$@" ;;
+    help|-h|--help) usage ;;
+    *)  echo "Unknown command: $command" >&2
+        usage >&2
+        exit 1 ;;
+esac

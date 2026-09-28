@@ -103,15 +103,16 @@ class MSDHCP (Plugin):
             raise MSDHCPError(
                 'MSDHCP: credential {0} not set. Store it with: {1}'.format(
                     ' and '.join(missing),
-                    '; '.join('docker compose run --rm secrets set ' + name
+                    '; '.join(credentials.set_command(name)
                               for name in missing)))
         try:
             import requests
             from pypsrp.client import Client
             import pypsrp.exceptions
         except ImportError:
-            raise MSDHCPError('MSDHCP: the image has no pypsrp; rebuild it '
-                              '(docker compose build)') from None
+            raise MSDHCPError('MSDHCP: the image has no pypsrp; start the '
+                              'preview with hd preview, which rebuilds '
+                              'it') from None
 
         https = self._config.get('transport', 'ntlm') == 'https'
         port = self._config.get('port', 5986 if https else 5985)

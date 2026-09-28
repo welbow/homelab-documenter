@@ -303,8 +303,9 @@ def test_restart_notes(tmp_path, monkeypatch):
     monkeypatch.setattr(reloader, '_started', {
         name: reloader._digest(name) for name in reloader.SERVER_FILES})
     assert reloader.restart_notes() == [
-        'requirements.txt changed since the image was built: run docker '
-        'compose build, then restart the preview']
+        'requirements.txt changed since the image was built: stop the '
+        'preview and start it again with hd preview, which rebuilds the '
+        'image']
 
     # rewritten unchanged (e.g. by a git checkout): not a change
     stat = os.stat(app / 'reloader.py')
@@ -314,4 +315,4 @@ def test_restart_notes(tmp_path, monkeypatch):
 
     assert reloader.restart_notes() == [
         'delivery.py changed since the preview started: restart the preview '
-        'to use it']
+        '(Ctrl-C, then hd preview) to use it']

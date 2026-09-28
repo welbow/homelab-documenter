@@ -95,8 +95,8 @@ def test_names_only_the_missing_credential(bw_plugin):
     credentials.put('bw_clientid', 'user.example')
 
     with pytest.raises(RuntimeError, match=r'\(bw_clientsecret\)\. Store it '
-                                           r'with: docker compose run --rm '
-                                           r'secrets set bw_clientsecret'):
+                                           r'with: hd secret set '
+                                           r'bw_clientsecret'):
         bw_plugin.run()
 
 
@@ -161,8 +161,8 @@ def test_no_stored_password_and_no_terminal_is_a_clear_error(
                         raising=False)
     bw = fake(monkeypatch, status='locked')
 
-    with pytest.raises(RuntimeError, match='docker compose run --rm secrets '
-                                           'set bw_master_password'):
+    with pytest.raises(RuntimeError,
+                       match='hd secret set bw_master_password'):
         bw_plugin.run()
 
     assert bw.commands()[-2:] == ['lock', 'logout']

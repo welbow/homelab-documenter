@@ -42,10 +42,12 @@ volumes:
   keys:
     name: homelab-documenter-keys
 
-# Always use `docker compose run --rm` so no container is left behind.
+# Everyday use goes through the hd wrapper (hd.cmd / ./hd, see "hd help"),
+# which runs these services with `docker compose run --rm` so no container
+# is left behind.
 services:
   # Generate the packet and serve it until Ctrl-C:
-  #   docker compose run --rm --service-ports preview
+  #   hd preview   (docker compose run --rm --service-ports preview)
   # then open http://127.0.0.1:8000 and print from the browser.
   # The service's options are in its entrypoint, so extra options given
   # to `docker compose run` (e.g. --skip 500) add to them.
@@ -57,7 +59,7 @@ services:
 
   # Generate the packet and copy it, plus the files in output/, to the
   # folder mounted at /export (e.g. a USB stick):
-  #   docker compose run --rm build
+  #   hd build   (docker compose run --rm build)
   # /export has no mount here on purpose: add one in
   # docker-compose.override.yml (see the .example). Without it the run
   # stops with an error instead of writing into the container.
@@ -68,9 +70,9 @@ services:
 
   # Store, list, check or remove encrypted credentials (#22); values are
   # never printed:
-  #   docker compose run --rm secrets set bw_master_password   (prompts)
-  #   docker compose run --rm secrets list
-  #   docker compose run --rm secrets check
+  #   hd secret set bw_master_password   (prompts)
+  #   hd secret list
+  #   hd secret check
   secrets:
     image: homelab-documenter
     build:
@@ -85,7 +87,7 @@ services:
       - 'keys:/keys'
     entrypoint: ['python', '/app/secrets_cli.py']
 
-  # Test suite: `docker compose run --rm test` (extra args go to pytest).
+  # Test suite: `hd test` (extra args go to pytest).
   # Mounts the working tree, so code changes need no rebuild.
   test:
     build:

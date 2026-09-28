@@ -67,8 +67,8 @@ your admin account.
    with a `key=` and a `secret=` line.
 4. Store both (each command prompts for the value; paste it):
    ```
-   docker compose run --rm secrets set opnsense_api_key
-   docker compose run --rm secrets set opnsense_api_secret
+   hd secret set opnsense_api_key
+   hd secret set opnsense_api_secret
    ```
    Then delete the downloaded file.
 5. Set `url` in config.json, and `"enabled": 1`.
