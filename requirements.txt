@@ -4,3 +4,4 @@ tzdata
 cryptography
 pypsrp
 pysnmp
+pyvmomi

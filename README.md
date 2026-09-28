@@ -204,6 +204,7 @@ your environment; each is off unless its config section enables it.
 | 100 | [NmapPingScan](plugins/100-nmap-ping-scan/README.md) | Finds live hosts on your subnets. |
 | 110 | [MSDHCP](plugins/110-msdhcp/README.md) | Adds devices from a Microsoft (Windows Server) DHCP server's leases and reservations (optional; only if you use one). |
 | 120 | [CiscoSwitches](plugins/120-cisco-switches/README.md) | Reads Cisco switches over SNMP: ports, MAC tables, port-channels, neighbours (optional; Cisco only). |
+| 130 | [VMwareESXi](plugins/130-vmware-esxi/README.md) | Reads VMware ESXi hosts: the host, its VMs (addresses, autostart order, disks, notes) and the VMware Virtual Machines section (optional; VMware only). |
 | 150 | [OPNsense](plugins/150-opnsense/README.md) | Adds devices from an OPNsense firewall's ARP table, with MAC addresses, vendors and interfaces (optional; only if you use OPNsense). |
 | 500 | [BitwardenPasswords](plugins/500-bitwarden-passwords/README.md) | Lists the items in a Bitwarden vault (optional; only if you use Bitwarden). |
 | 800 | [PortMap](plugins/800-port-map/README.md) | Works out which switch port each device is plugged into, from what the other plugins found, and adds the Switch Ports section. |

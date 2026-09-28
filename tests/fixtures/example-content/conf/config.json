@@ -28,6 +28,12 @@
             "enabled": 0,
             "switches": [{"host": "192.0.2.11"}, {"host": "192.0.2.12"}]
         },
+        "VMwareESXi": {
+            "enabled": 0,
+            "hosts": [{"host": "esxi01.example.com"}],
+            "verify_tls": 0,
+            "section": {"title": "VMware Virtual Machines", "seq_number": "045"}
+        },
         "OPNsense": {
             "enabled": 0,
             "url": "https://192.0.2.1",

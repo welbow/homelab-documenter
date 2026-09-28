@@ -8,7 +8,7 @@ def test_discovers_all_plugins_in_numeric_order():
 
     assert names == ['ConfigLoader', 'StaticFile', 'HostOverrides',
                      'NmapPingScan', 'MSDHCP', 'CiscoSwitches',
-                     'OPNsense',
+                     'VMwareESXi', 'OPNsense',
                      'BitwardenPasswords', 'PortMap', 'OutputCredInfo',
                      'OutputHostInfo', 'TableOfContents', 'HTMLOutput']
 
