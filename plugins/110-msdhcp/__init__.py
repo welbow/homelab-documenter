@@ -263,19 +263,24 @@ class MSDHCP (Plugin):
             ip = _ip(reservation.get('IPAddress'))
             if not ip:
                 continue
+            # The reservation's name is usually the device's name: it goes
+            # in Hostname (where a lease's or DNS's name, if any, wins), so
+            # Notes only need the description
             note = ''
             if notes:
-                note = ': '.join(['DHCP reservation'] + [' - '.join(
-                    part for part in (reservation.get('Name'),
-                                      reservation.get('Description'))
-                    if part)]).rstrip(': ')
+                note = 'Reserved'
+                if reservation.get('Description'):
+                    note += ': ' + reservation['Description']
             # A reservation only says the device exists: unless another
             # source (nmap, the firewall's ARP table) sees it on the network
             # this run, the device table marks it inactive (or leaves it out)
             self.addHost(ip, source='MSDHCP', seen=False,
                          mac=_mac(reservation.get('ClientId')),
+                         hostname=reservation.get('Name') or '',
                          subnet=scopes[reservation['ScopeId']], notes=note,
-                         status_if_unseen='Inactive DHCP reservation',
+                         # Notes already say it's a reservation
+                         status_if_unseen='Inactive' if notes else
+                         'Inactive (DHCP reservation)',
                          hide_if_unseen=inactive == 'hide')
             count += 1
 

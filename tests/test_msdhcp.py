@@ -99,10 +99,13 @@ def test_reservations_with_notes(content):
     run()
 
     printer = vars.hosts['198.51.100.20']
-    assert printer['notes'] == 'DHCP reservation: Printer - Upstairs office'
+    assert printer['notes'] == 'Reserved: Upstairs office'
+    # the reservation's name is the hostname when nothing else names it
+    assert printer['hostname'] == 'Printer'
     assert printer['mac'] == 'aa:bb:cc:00:00:20'
     # a reserved device shows up even when it's offline (no lease)
-    assert vars.hosts['192.0.2.30']['notes'] == 'DHCP reservation: Camera'
+    assert vars.hosts['192.0.2.30']['notes'] == 'Reserved'
+    assert vars.hosts['192.0.2.30']['hostname'] == 'Camera'
 
 
 def test_reservation_notes_can_be_turned_off(content):
@@ -412,8 +415,10 @@ def test_reservations_nothing_saw_are_marked_inactive(content):
     # a reservation says the device exists, not that it's on: the camera
     # has no lease, and the printer's "ActiveReservation" lease stays so
     # for good once taken
-    assert rows['192.0.2.30']['Status'] == 'Inactive DHCP reservation'
-    assert rows['198.51.100.20']['Status'] == 'Inactive DHCP reservation'
+    assert rows['192.0.2.30']['Status'] == 'Inactive'
+    assert rows['198.51.100.20']['Status'] == 'Inactive'
+    # the Notes say why: it's a reservation
+    assert rows['192.0.2.30']['Notes'] == 'Reserved'
     # a dynamic lease is recent: the device is around
     assert rows['192.0.2.50']['Status'] == ''
 
@@ -442,7 +447,7 @@ def test_a_host_override_does_not_count_as_seen(content):
     run()
 
     assert output_hosts()['192.0.2.30']['Status'] == \
-        'Inactive DHCP reservation'
+        'Inactive'
 
 
 def test_inactive_reservations_can_be_hidden(content):
@@ -463,3 +468,12 @@ def test_inactive_reservations_option_is_checked(content):
 
     with pytest.raises(msdhcp.MSDHCPError, match='"show" or "hide"'):
         run()
+
+
+def test_without_reservation_notes_the_status_says_why(content):
+    export_file(content)
+    config()['reservation_notes'] = 0
+
+    run()
+
+    assert output_hosts()['192.0.2.30']['Status'] ==         'Inactive (DHCP reservation)'

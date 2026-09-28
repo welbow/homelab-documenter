@@ -27,7 +27,7 @@ hosts_keys = {
     'Vendor': 'vendor',
     'Seen by': 'sources',
     # Set by OutputHostInfo from status_if_unseen, for a host no source saw
-    # this run (e.g. "Inactive DHCP reservation")
+    # this run (e.g. "Inactive" for a DHCP reservation)
     'Status': 'status',
     'Notes': 'notes'
 }
