@@ -243,7 +243,7 @@ class PortMap (Plugin):
                 h2(switch)
                 self._switch_table(switch)
         self.addOutput(d, title=section.get('title', 'Switch ports'),
-                       seq=section.get('seq_number', '955'),
+                       seq=section.get('seq_number', '970'),
                        keyname='switch-ports')
 
     def _switch_table(self, switch):

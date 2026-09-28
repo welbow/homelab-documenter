@@ -159,7 +159,7 @@ def test_hosts_are_placed_on_their_ports(switches):
         ['Uplink: access-sw Gi0/3']
     assert port('access-sw', 'Po1')['connected'] == \
         ['Uplink: core-sw gi1/0/47']
-    html = vars.output['955-switch-ports']['output'].render()
+    html = vars.output['970-switch-ports']['output'].render()
     assert '<td>Po1 (gi1/0/47, gi1/0/48)</td>' in html
     assert '<td>Po1 (Gi0/3, Gi0/4)</td>' in html
 

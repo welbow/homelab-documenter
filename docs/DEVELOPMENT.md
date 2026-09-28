@@ -135,6 +135,7 @@ Three digits are a readable convention. A typical layout:
 | 010-899 | Your pages and plugin sections |
 | 950 | Appendix: devices |
 | 960+ | Appendices: credentials |
+| 970 | Appendix: switch ports |
 
 Each section's key is `<seq_number>-<keyname>`, which is also its anchor
 in the page (e.g. `#010-static-file-start-here`). Sections sharing a

@@ -8,7 +8,7 @@ section. On by default; it has nothing to do until a switch plugin (e.g.
 
 ```json
 "PortMap": {
-  "section": {"title": "Switch ports", "seq_number": "955",
+  "section": {"title": "Appendix C - Switch ports", "seq_number": "970",
               "header": "Which device is on each switch port"}
 }
 ```
@@ -16,7 +16,7 @@ section. On by default; it has nothing to do until a switch plugin (e.g.
 | Key | Required | Meaning |
 |---|---|---|
 | `enabled` | no | `0` turns it off. |
-| `section` | no | The Switch ports section: `title` (default "Switch ports"), `seq_number` (default `955`) and `header`; `0` leaves the section out (Connected to still fills in). |
+| `section` | no | The Switch ports section, an appendix like the device and credential tables: `title` (default "Switch ports"; name it like your other appendices, e.g. "Appendix C - Switch ports"), `seq_number` (default `970`, after the device (950) and credential (960+) appendices) and `header`; `0` leaves the section out (Connected to still fills in). |
 
 It runs on every rebuild, after all discovery (its number is in the 800s,
 see [plugins.md](../../docs/plugins.md)).

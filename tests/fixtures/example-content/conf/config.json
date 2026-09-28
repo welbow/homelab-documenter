@@ -45,6 +45,9 @@
                 }
             ]
         },
+        "PortMap": {
+            "section": {"title": "Appendix C - Switch ports", "seq_number": "970"}
+        },
         "OutputHostInfo": {
             "enabled": 1,
             "title": "Appendix A - Devices",
