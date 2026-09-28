@@ -28,7 +28,8 @@ def test_rows_become_manual_hosts(overrides_file):
     overrides.getPlugin().run()
 
     assert vars.hosts['192.168.2.1'] == {
-        'ipaddress': '192.168.2.1', 'sources': ['manual'], 'name': 'Router',
+        'ipaddress': '192.168.2.1', 'sources': ['manual'], 'seen': False,
+        'name': 'Router',
         'type': 'router', 'notes': "Internet gateway, don't unplug"}
     # type matching ignores case and uses the canonical spelling
     assert vars.hosts['192.168.2.20']['type'] == 'IoT'

@@ -7,8 +7,12 @@ server only; OPNsense's own DHCP is read by [OPNsense](../150-opnsense/README.md
 - **Active leases:** IP address, MAC address, and the name the device gave
   when it asked for an address. That includes devices that don't answer
   pings (which nmap misses).
-- **Reservations:** devices with a reserved address, even when they're
-  offline, with the reservation's name and description in Notes.
+- **Reservations:** devices with a reserved address, with the
+  reservation's name and description in Notes. A reservation only says the
+  device exists (its lease stays "active" for good once taken), so one that
+  no other source (nmap, the firewall's ARP table) sees on the network this
+  run gets **Inactive DHCP reservation** in the Status column, or is left
+  out with `"inactive_reservations": "hide"`.
 - **Scopes:** each scope's description becomes the purpose of that network
   in the OPNsense Networks section (unless config.json gives one there).
 
@@ -39,6 +43,7 @@ Two ways to read the server; both use the same script,
 | `file` | no | With `file`: the export's name in `input/MSDHCP/` (default `msdhcp-export.json`). |
 | `max_age_days` | no | With `file`: warn when the export is older than this (default 7; `0` never warns). |
 | `scopes` | no | Only these scopes, by scope ID, e.g. `["192.0.2.0"]`. Default all. |
+| `inactive_reservations` | no | `show` (default): reserved devices nothing saw this run are listed, marked Inactive DHCP reservation in the Status column. `hide`: they're left out. |
 | `reservation_notes` | no | `0` leaves reservations' names and descriptions out of Notes. |
 
 **Credentials** (`winrm` only): `msdhcp_username` (`DOMAIN\user` or

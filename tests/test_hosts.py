@@ -27,7 +27,7 @@ def test_addHost_merges_sources_and_fields(caplog):
     assert vars.hosts['192.168.2.1'] == {
         'ipaddress': '192.168.2.1', 'hostname': 'router.lan',
         'subnet': '192.168.2.0/24', 'mac': 'AA:BB',
-        'sources': ['nmap', 'dhcp', 'switch']}
+        'sources': ['nmap', 'dhcp', 'switch'], 'seen': True}
     assert "keeping hostname 'router.lan', switch reported 'other.lan'" \
         in caplog.text
 

@@ -52,7 +52,8 @@ class HostOverrides (Plugin):
                                              line, host_type, ip,
                                              ', '.join(KNOWN_TYPES)))
 
-                self.addHost(ip, source='manual', name=row.get('name', ''),
+                self.addHost(ip, source='manual', seen=False,
+                             name=row.get('name', ''),
                              type=host_type, notes=row.get('notes', ''))
                 count += 1
 

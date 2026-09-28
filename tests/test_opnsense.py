@@ -125,7 +125,7 @@ def test_arp_entries_become_hosts(firewall):
     run()
 
     assert vars.hosts['192.0.2.10'] == {
-        'ipaddress': '192.0.2.10', 'sources': ['OPNsense'],
+        'ipaddress': '192.0.2.10', 'sources': ['OPNsense'], 'seen': True,
         'mac': 'aa:bb:cc:00:00:10', 'vendor': 'Example Corp',
         'hostname': 'nas', 'subnet': '192.0.2.0/24', 'interface': 'LAN'}
     assert vars.hosts['198.51.100.20']['interface'] == 'IoT'
@@ -316,7 +316,7 @@ def test_leases_from_whichever_dhcp_server_answers(firewall, caplog):
         run()
 
     assert vars.hosts['198.51.100.50'] == {
-        'ipaddress': '198.51.100.50', 'sources': ['OPNsense'],
+        'ipaddress': '198.51.100.50', 'sources': ['OPNsense'], 'seen': True,
         'mac': 'aa:bb:cc:00:00:50', 'hostname': 'thermostat',
         'subnet': '198.51.100.0/24', 'interface': 'IoT'}
     # the Kea privilege is only warned about, in case Kea is in use

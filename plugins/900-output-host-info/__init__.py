@@ -24,11 +24,22 @@ class OutputHostInfo (Plugin):
 
         # Only the columns some source filled in (Type always shows, with
         # "Unknown" where no source knows it), hosts in IP order
+        # A host no source saw on the network this run (only written down,
+        # e.g. a DHCP reservation without a lease): left out, or marked in
+        # the Status column, if a source asked for that
+        hosts = []
+        for host in vars.hosts.values():
+            if not host.get('seen', True):
+                if host.get('hide_if_unseen'):
+                    continue
+                if host.get('status_if_unseen'):
+                    host = dict(host, status=host['status_if_unseen'])
+            hosts.append(host)
+        hosts.sort(key=lambda h: ipaddress.ip_address(h['ipaddress']))
+
         columns = [(title, key) for title, key in vars.hosts_keys.items()
                    if key in ALWAYS_SHOWN
-                   or any(h.get(key) for h in vars.hosts.values())]
-        hosts = sorted(vars.hosts.values(),
-                       key=lambda h: ipaddress.ip_address(h['ipaddress']))
+                   or any(h.get(key) for h in hosts)]
 
         with div() as d:
             p(self._config['header'])

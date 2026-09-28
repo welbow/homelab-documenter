@@ -26,6 +26,9 @@ hosts_keys = {
     'MAC Address': 'mac',
     'Vendor': 'vendor',
     'Seen by': 'sources',
+    # Set by OutputHostInfo from status_if_unseen, for a host no source saw
+    # this run (e.g. "Inactive DHCP reservation")
+    'Status': 'status',
     'Notes': 'notes'
 }
 # Networks by subnet (CIDR), from data plugins via Plugin.addNetwork:

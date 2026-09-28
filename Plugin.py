@@ -67,16 +67,23 @@ class Plugin:
 
         vars.output[new_module_key] = new_output
 
-    def addHost(self, ip, source=None, **fields):
+    def addHost(self, ip, source=None, seen=True, **fields):
         """Add what this plugin knows about the host at ip to vars.hosts.
         Several plugins can report the same host: each is listed in its
         "sources", blank values never replace real ones, and when two
         disagree the first (lowest-numbered plugin) wins and the
-        disagreement is logged."""
+        disagreement is logged.
+
+        seen: whether this source saw the host on the network this run
+        (False for what's only written down, e.g. a host override or a DHCP
+        reservation without a lease). A host no source saw can say so, or
+        be left out, with the fields status_if_unseen (text for the Status
+        column) and hide_if_unseen."""
         source = source or type(self).__name__
         if vars.recording is not None:
-            vars.recording.append((ip, source, dict(fields)))
+            vars.recording.append((ip, source, dict(fields, seen=seen)))
         host = vars.hosts.setdefault(ip, {'ipaddress': ip, 'sources': []})
+        host['seen'] = host.get('seen', False) or seen
         self._merge(host, 'Host ' + ip, source, fields)
 
     def addNetwork(self, subnet, source=None, **fields):

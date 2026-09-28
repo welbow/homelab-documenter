@@ -242,12 +242,21 @@ class MSDHCP (Plugin):
             ip = _ip(lease.get('IPAddress'))
             if not ip:
                 continue
-            self.addHost(ip, source='MSDHCP', mac=_mac(lease.get('ClientId')),
+            # A dynamic lease was asked for recently: the device is around.
+            # A reservation's lease stays "ActiveReservation" for good once
+            # taken, so it says nothing about the device being on now.
+            self.addHost(ip, source='MSDHCP',
+                         seen=lease['AddressState'] == 'Active',
+                         mac=_mac(lease.get('ClientId')),
                          hostname=lease.get('HostName') or '',
                          subnet=scopes[lease['ScopeId']])
             count += 1
 
         notes = self._config.get('reservation_notes', 1) == 1
+        inactive = self._config.get('inactive_reservations', 'show')
+        if inactive not in ('show', 'hide'):
+            raise MSDHCPError('MSDHCP: "inactive_reservations" must be '
+                              '"show" or "hide", not {0!r}'.format(inactive))
         for reservation in data.get('reservations') or []:
             if reservation.get('ScopeId') not in scopes:
                 continue
@@ -260,9 +269,14 @@ class MSDHCP (Plugin):
                     part for part in (reservation.get('Name'),
                                       reservation.get('Description'))
                     if part)]).rstrip(': ')
-            self.addHost(ip, source='MSDHCP',
+            # A reservation only says the device exists: unless another
+            # source (nmap, the firewall's ARP table) sees it on the network
+            # this run, the device table marks it inactive (or leaves it out)
+            self.addHost(ip, source='MSDHCP', seen=False,
                          mac=_mac(reservation.get('ClientId')),
-                         subnet=scopes[reservation['ScopeId']], notes=note)
+                         subnet=scopes[reservation['ScopeId']], notes=note,
+                         status_if_unseen='Inactive DHCP reservation',
+                         hide_if_unseen=inactive == 'hide')
             count += 1
 
         self._logger.info('Read {0} lease(s) and reservation(s) in {1} '

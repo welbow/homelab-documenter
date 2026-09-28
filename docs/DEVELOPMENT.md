@@ -149,7 +149,11 @@ def getPlugin():
 - `addHost(ip, source, **fields)` merges what the plugin knows about a
   host into the device table: blank values never replace real ones, the
   lower-numbered plugin wins a conflict (logged), and `source` shows in
-  the Seen by column.
+  the Seen by column. Pass `seen=False` for what the source only knows
+  exists (a hand-written entry, a DHCP reservation) rather than saw on the
+  network this run; if no source saw a host, the device table shows its
+  `status_if_unseen` field in a Status column, or leaves it out if
+  `hide_if_unseen` is set.
 - `addNetwork(subnet, source, **fields)` does the same for a network
   (`subnet` in CIDR form, e.g. `name`, `purpose`) in `vars.networks`, for
   plugins that describe networks.

@@ -85,7 +85,7 @@ def test_active_leases_become_hosts(content):
     run()
 
     assert vars.hosts['192.0.2.50'] == {
-        'ipaddress': '192.0.2.50', 'sources': ['MSDHCP'],
+        'ipaddress': '192.0.2.50', 'sources': ['MSDHCP'], 'seen': True,
         'mac': 'aa:bb:cc:00:00:50', 'hostname': 'laptop.example.com',
         'subnet': '192.0.2.0/24'}
     assert '192.0.2.51' not in vars.hosts            # expired
@@ -383,4 +383,83 @@ def test_timeout(winrm):
     winrm.error = requests.exceptions.ReadTimeout('timed out')
 
     with pytest.raises(msdhcp.MSDHCPError, match='no answer .* 30s'):
+        run()
+
+
+# --- reservations without a lease --------------------------------------------
+
+def output_hosts():
+    """Run OutputHostInfo and return its table as {ip: {column: value}}."""
+    import re
+    vars.config['plugins']['OutputHostInfo'] = {
+        'enabled': 1, 'title': 'Devices', 'header': '', 'seq_number': 950}
+    importlib.import_module('plugins.900-output-host-info').getPlugin().run()
+    html = vars.output['950-output-host-info']['output'].render()
+    heads = re.findall(r'<th>(.*?)</th>', html)
+    rows = {}
+    for row in re.findall(r'<tr>(.*?)</tr>', html, re.S)[1:]:
+        cells = dict(zip(heads, re.findall(r'<td>(.*?)</td>', row, re.S)))
+        rows[cells['IP Address']] = cells
+    return rows
+
+
+def test_reservations_nothing_saw_are_marked_inactive(content):
+    export_file(content)
+
+    run()
+
+    rows = output_hosts()
+    # a reservation says the device exists, not that it's on: the camera
+    # has no lease, and the printer's "ActiveReservation" lease stays so
+    # for good once taken
+    assert rows['192.0.2.30']['Status'] == 'Inactive DHCP reservation'
+    assert rows['198.51.100.20']['Status'] == 'Inactive DHCP reservation'
+    # a dynamic lease is recent: the device is around
+    assert rows['192.0.2.50']['Status'] == ''
+
+
+def test_seen_by_another_source_is_not_inactive(content):
+    export_file(content)
+
+    class Scan(Plugin):
+        pass
+    run()
+    # e.g. OPNsense (which runs after MSDHCP) sees it in its ARP table
+    Scan().addHost('192.0.2.30', source='OPNsense', mac='aa:bb:cc:00:00:30')
+
+    rows = output_hosts()
+    assert 'Status' not in rows['192.0.2.30'] or \
+        rows['192.0.2.30']['Status'] == ''
+
+
+def test_a_host_override_does_not_count_as_seen(content):
+    export_file(content)
+
+    class Manual(Plugin):
+        pass
+    Manual().addHost('192.0.2.30', source='manual', seen=False,
+                     name='Front door camera')
+    run()
+
+    assert output_hosts()['192.0.2.30']['Status'] == \
+        'Inactive DHCP reservation'
+
+
+def test_inactive_reservations_can_be_hidden(content):
+    export_file(content)
+    config()['inactive_reservations'] = 'hide'
+
+    run()
+
+    rows = output_hosts()
+    assert '192.0.2.30' not in rows and '198.51.100.20' not in rows
+    assert '192.0.2.50' in rows
+    assert 'Status' not in rows['192.0.2.50']   # no column at all
+
+
+def test_inactive_reservations_option_is_checked(content):
+    export_file(content)
+    config()['inactive_reservations'] = 'maybe'
+
+    with pytest.raises(msdhcp.MSDHCPError, match='"show" or "hide"'):
         run()
