@@ -75,6 +75,9 @@ class FakeFirewall:
         self.responses = {
             'diagnostics/interface/get_arp': ARP,
             'interfaces/overview/interfaces_info': INTERFACES,
+            'diagnostics/system/system_information': {
+                'name': 'fw.example.com', 'versions': ['OPNsense 26.1'],
+                'updates': ''},
         }
         self.requests = []
         self.error = None
@@ -142,6 +145,38 @@ def test_the_firewall_is_a_router_on_each_interface(firewall):
         assert vars.hosts[ip]['hostname'] == 'firewall'
         assert vars.hosts[ip]['interface'] == name
         assert vars.hosts[ip]['mac'] == '00:0d:b9:00:00:01'
+
+
+def test_the_firewall_names_itself_on_every_address(firewall):
+    class Scan(Plugin):
+        pass
+    # nmap (which runs first) found a DNS name for one of the addresses
+    Scan().addHost('192.0.2.1', source='nmap', hostname='gw.example.com')
+
+    run()
+
+    assert vars.hosts['198.51.100.1']['hostname'] == 'fw.example.com'
+    assert vars.hosts['192.0.2.1']['hostname'] == 'gw.example.com'  # kept
+
+
+def test_hostname_config_skips_the_api(firewall):
+    config()['hostname'] = 'firewall'
+
+    run()
+
+    assert vars.hosts['198.51.100.1']['hostname'] == 'firewall'
+    assert 'diagnostics/system/system_information' not in         firewall.endpoints()
+
+
+def test_firewall_name_without_the_privilege(firewall, caplog):
+    firewall.responses['diagnostics/system/system_information'] = 403
+
+    with caplog.at_level(logging.WARNING):
+        run()
+
+    assert 'hostname' not in vars.hosts['198.51.100.1']
+    assert 'privilege "Lobby: Dashboard"' in caplog.text
+    assert vars.hosts['192.0.2.10']['mac']   # the rest still works
 
 
 def test_host_overrides_still_win(firewall):

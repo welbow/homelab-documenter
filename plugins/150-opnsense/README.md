@@ -29,7 +29,7 @@ Reads an OPNsense firewall through its REST API:
 | `verify_tls` | no | `1` (default) checks the firewall's TLS certificate. `0` turns the check off, with a warning each run; prefer `ca_file`. |
 | `ca_file` | no | For a self-signed certificate: the CA (or the certificate itself) as a PEM file in the content repo's `conf/`. |
 | `timeout` | no | Seconds to wait for each API call (default 15). |
-| `hostname` | no | The firewall's name, for its own rows in the device table. |
+| `hostname` | no | The firewall's name for its own rows in the device table. Default: what OPNsense calls itself (hostname.domain, needs the `Lobby: Dashboard` privilege). |
 | `exclude_interfaces` | no | Interfaces whose devices to leave out of the device table, by name, identifier or device (e.g. `["WAN"]`): no firewall address, ARP entries or leases from them. They stay in the Networks section. The loopback is always left out. |
 | `leases` | no | `1` also reads the DHCPv4 leases (see below). Default off. |
 | `network_section` | no | Adds a Networks section: one row per assigned interface/VLAN with its subnet, the firewall's address on it (the gateway), VLAN tag and interface. An interface that gets its address by DHCP (e.g. the WAN) says DHCP instead of the current lease. `title`, `seq_number` and `header` as for other sections, and `purposes`: what each network is for, by interface name (e.g. `{"LAN": "Computers and the file server", "IoT": "Smart plugs, TVs, cameras"}`), shown as a Purpose column. |
@@ -55,6 +55,9 @@ your admin account.
 2. Give the user these privileges (and no group that grants more):
    - `Diagnostics: ARP Table`
    - `Status: Interfaces`
+   - `Lobby: Dashboard`, for the firewall's own name (hostname.domain) on
+     its addresses; without it, set `hostname` in config.json, or they
+     only get the names reverse DNS knows
    - only with `"leases": 1`, the one for your DHCP server:
      `Services: DHCP: Kea(v4)` or `Services: Dnsmasq DNS/DHCP: Settings`.
      These also allow changing that service's settings (OPNsense has no

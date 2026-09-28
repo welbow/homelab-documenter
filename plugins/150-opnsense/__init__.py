@@ -21,6 +21,8 @@ from Plugin import Plugin
 # named in System > Access > Users) the API user needs for each
 ARP = 'diagnostics/interface/get_arp'
 INTERFACES = 'interfaces/overview/interfaces_info'
+# The firewall's own name (hostname.domain) and version
+SYSTEM = 'diagnostics/system/system_information'
 # DHCPv4 leases, per DHCP server; whichever answers is used. (ISC DHCP,
 # end of life and a plugin since 26.1, isn't read.)
 LEASES = {
@@ -29,6 +31,7 @@ LEASES = {
 }
 PRIVILEGES = {
     ARP: 'Diagnostics: ARP Table',
+    SYSTEM: 'Lobby: Dashboard',
     INTERFACES: 'Status: Interfaces',
     LEASES['Kea']: 'Services: DHCP: Kea(v4)',
     LEASES['Dnsmasq']: 'Services: Dnsmasq DNS/DHCP: Settings',
@@ -236,12 +239,30 @@ class OPNsense (Plugin):
             ipaddress.ip_address(ip) in subnet
             for subnet in self._excluded['subnets'])
 
+    def _firewall_name(self):
+        """The firewall's hostname: "hostname" in config.json, else what
+        OPNsense calls itself (hostname.domain), else '' with a warning."""
+        if self._config.get('hostname'):
+            return self._config['hostname']
+        try:
+            return self._get(SYSTEM).get('name') or ''
+        except (Forbidden, NotFound) as e:
+            self._logger.warning('{0}; the firewall\'s addresses get no '
+                                 'hostname (or set "hostname" in its '
+                                 'config.json section)'.format(e))
+            return ''
+
     def _add_firewall(self, interfaces):
-        for device, iface in interfaces.items():
-            if not iface['address'] or iface['excluded']:
-                continue
+        addresses = [(device, iface) for device, iface in interfaces.items()
+                     if iface['address'] and not iface['excluded']]
+        if not addresses:
+            return
+        # On every one of its addresses; where reverse DNS (nmap) already
+        # named an address, that name stays (the usual merge rule)
+        name = self._firewall_name()
+        for device, iface in addresses:
             self.addHost(iface['address'], source='OPNsense', type='router',
-                         hostname=self._config.get('hostname', ''),
+                         hostname=name,
                          mac=_mac(iface['mac']), subnet=iface['subnet'],
                          interface=iface['name'])
 
