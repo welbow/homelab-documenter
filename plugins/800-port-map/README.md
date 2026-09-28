@@ -25,8 +25,13 @@ see [plugins.md](../../docs/plugins.md)).
 - **Port-channels:** member ports are listed with their channel
   (`Po1 (Gi1/0/47, Gi1/0/48)`), and a member's CDP/LLDP neighbour counts
   for the channel.
-- **Uplinks:** a port whose neighbour is another device shows it
-  (`Uplink: access-sw Gi0/3`), and the other side learns it too. If the
+- **Uplinks:** a port whose neighbour is a device we know (a switch, the
+  firewall) shows it (`Uplink: access-sw Gi0/3`), and the other side learns
+  it too. Neighbours don't always send their own name (a CBS350's CDP ID is
+  its MAC; OPNsense says "OPNsense" over LLDP), so they're also found by
+  the MAC or address they send. Any other neighbour (an IP phone, an access
+  point) is shown as `Neighbour: ...`, and what's behind it is still
+  placed on the port. If the
   neighbour's interface is known (e.g. the firewall's `igb1`), that
   interface records which switch port it's on. Long and short interface
   names match (`GigabitEthernet1/0/5` = `Gi1/0/5`).

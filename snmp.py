@@ -117,7 +117,11 @@ class Session:
     def _setup(self):
         if self._engine is not None:
             return
-        from pysnmp.hlapi.v3arch import asyncio as hl
+        try:
+            from pysnmp.hlapi.v3arch import asyncio as hl
+        except ImportError:
+            raise SNMPError('the image has no pysnmp; start the preview '
+                            'with hd preview, which rebuilds it') from None
         self._hl = hl
         self._engine = hl.SnmpEngine()
         self._target = self._loop.run_until_complete(

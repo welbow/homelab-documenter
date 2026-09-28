@@ -64,8 +64,13 @@ def catalyst_2960():
     d[oid('vlanTrunkPortDynamicStatus', 10101)] = 2
     d[oid('vlanTrunkPortDynamicStatus', 10102)] = 2
     d[oid('vlanTrunkPortDynamicStatus', 5001)] = 1
-    d[oid('cdpCacheDeviceId', 10103, 1)] = b'core-sw(FOC1234X5YZ)'
-    d[oid('cdpCacheDevicePort', 10103, 1)] = b'GigabitEthernet1/0/47'
+    # A CBS350's CDP device ID is its MAC address, with its IP alongside
+    d[oid('cdpCacheDeviceId', 10103, 1)] = b'00aabbccdda0'
+    d[oid('cdpCacheDevicePort', 10103, 1)] = b'gi1/0/47'
+    d[oid('cdpCacheAddress', 10103, 1)] = bytes([192, 0, 2, 11])
+    # A Catalyst adds its serial number to its own ID
+    d[oid('cdpCacheDeviceId', 10101, 1)] = b'phone.example.com(FOC1234X5YZ)'
+    d[oid('cdpCacheDevicePort', 10101, 1)] = b'Port 1'
 
     bridge = {1: 10101, 2: 10102, 56: 5001}
     per_vlan = {'1': [('aa:bb:cc:00:00:05', 1), ('aa:bb:cc:ff:ff:01', 56),
@@ -90,20 +95,26 @@ def cbs350():
     d = {}
     d[oid('sysName')] = b'core-sw'
     d[oid('sysDescr')] = b'CBS350-24P-4G 24-Port Gigabit PoE Managed Switch'
+    # The VLAN interface is named by number; oob and User Defined Port 1
+    # are internal; te2/0/1 is a stack slot that isn't there; Po2 is unused
     ifs = {1: ('gi1/0/1', 6), 2: ('gi1/0/2', 6), 47: ('gi1/0/47', 6),
-           48: ('gi1/0/48', 6), 1000: ('Po1', 161),
-           100000: ('vlan 1', 136)}
+           48: ('gi1/0/48', 6), 1000: ('Po1', 161), 1001: ('Po2', 161),
+           100000: ('1', 53), 1050: ('oob', 6), 8000: ('User Defined Port 1',
+                                                      22),
+           113: ('te2/0/1', 6)}
     for i, (name, kind) in ifs.items():
         d[oid('ifName', i)] = name.encode()
         d[oid('ifType', i)] = kind
         d[oid('ifAdminStatus', i)] = 2 if i == 2 else 1
-        d[oid('ifOperStatus', i)] = 2 if i == 2 else 1
+        d[oid('ifOperStatus', i)] = {2: 2, 1001: 2, 113: 6}.get(i, 1)
         d[oid('ifHighSpeed', i)] = 2000 if i == 1000 else 1000
         d[oid('ifAlias', i)] = b'Firewall LAN' if i == 1 else b''
         d[oid('ifPhysAddress', i)] = mac('00:aa:bb:cc:dd:{0:02x}'.format(
             i % 256))
     d[oid('ipAdEntIfIndex', *ip_index('192.0.2.11'))] = 100000
     d[oid('ipAdEntNetMask', *ip_index('192.0.2.11'))] = IP('255.255.255.0')
+    d[oid('ipAdEntIfIndex', *ip_index('0.0.4.26'))] = 1050
+    d[oid('ipAdEntIfIndex', *ip_index('169.254.0.1'))] = 8000
     for i in (1, 2, 47, 48):
         d[oid('dot3adAggPortAttachedAggID', i)] = 1000 if i >= 47 else 0
         d[oid('dot1dBasePortIfIndex', i)] = i
@@ -121,6 +132,13 @@ def cbs350():
     d[oid('lldpRemSysName', 0, 47, 1)] = b'access-sw.example.com'
     d[oid('lldpRemPortId', 0, 47, 1)] = b'Gi0/3'
     d[oid('lldpRemPortDesc', 0, 47, 1)] = b'GigabitEthernet0/3'
+    # The firewall on gi1/0/1, calling itself "OPNsense" over LLDP, with
+    # its MAC as the chassis ID
+    d[oid('lldpLocPortId', 1)] = b'gi1/0/1'
+    d[oid('lldpRemSysName', 0, 1, 2)] = b'OPNsense'
+    d[oid('lldpRemPortId', 0, 1, 2)] = b'igb1'
+    d[oid('lldpRemChassisIdSubtype', 0, 1, 2)] = 4
+    d[oid('lldpRemChassisId', 0, 1, 2)] = mac('aa:bb:cc:ff:ff:01')
     return {'': d}
 
 

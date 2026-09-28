@@ -41,9 +41,11 @@ class PortMap (Plugin):
 
     - Port-channels: a member port's neighbour counts for its channel, and
       the channel is listed with its members.
-    - Uplinks (a port whose CDP/LLDP neighbour is another device) show the
-      neighbour; if that's a device interface we know (the firewall's igb1),
-      the interface says which switch port it's connected to.
+    - Uplinks (a port whose CDP/LLDP neighbour is a device we know: a
+      switch, the firewall) show the neighbour; if it's a device interface
+      we know (the firewall's igb1), the interface says which switch port
+      it's connected to. Other neighbours (an IP phone, an access point)
+      are shown, and what's behind them is still placed on the port.
     - Every other MAC a switch learned is placed on the port where it was
       learned with the fewest other MACs (the port it's plugged into, not
       the uplinks it was also seen on), and matched with the hosts' and the
@@ -116,12 +118,47 @@ class PortMap (Plugin):
     def _is_member(self, record):
         return bool(record.get('channel'))
 
+    def _resolve(self, record):
+        """The device key of a port's neighbour. Neighbours don't always
+        send their own hostname (a CBS350's CDP ID is its MAC; OPNsense
+        says "OPNsense" over LLDP), so an unknown name is looked up by the
+        neighbour's MAC address or IP address among the devices'
+        interfaces and the hosts."""
+        name = record['neighbor_device']
+        key = device_key(name)
+        if key in vars.devices:
+            return key
+        macs = [m for m in (record.get('neighbor_mac'),
+                            self._as_mac(name)) if m]
+        for mac in macs:
+            for device, info in vars.devices.items():
+                if any((i.get('mac') or '').lower() == mac
+                       for i in info['interfaces'].values()):
+                    return device
+            for host in vars.hosts.values():
+                if (host.get('mac') or '').lower() == mac and \
+                        host.get('device'):
+                    return host['device']
+        host = vars.hosts.get(record.get('neighbor_address') or '')
+        if host and host.get('device'):
+            return host['device']
+        return key
+
+    @staticmethod
+    def _as_mac(name):
+        digits = re.sub(r'[^0-9a-f]', '', (name or '').lower())
+        if len(digits) == 12 and len(digits) >= len(name) - 5:
+            return ':'.join(digits[i:i + 2] for i in range(0, 12, 2))
+        return ''
+
     def _uplinks(self):
+        for record in vars.ports.values():
+            if record.get('neighbor_device'):
+                record['neighbor_device'] = self._resolve(record)
         for (switch, port), record in vars.ports.items():
             neighbor = record.get('neighbor_device')
             if not neighbor or self._is_member(record):
                 continue
-            neighbor = device_key(neighbor)
             where = '{0} {1}'.format(switch, port)
             other = self._find_port(neighbor, record.get('neighbor_port', ''))
             iface = self._find_interface(neighbor,
@@ -130,7 +167,12 @@ class PortMap (Plugin):
                 iface['connected_to'] = where
             label = '{0} {1}'.format(
                 neighbor, record.get('neighbor_port', '')).strip()
-            record['connected'].append('Uplink: ' + label)
+            # A neighbour we know as a device (a switch, the firewall) makes
+            # this an uplink; any other (an IP phone, an access point) is
+            # just shown, and what's behind it is still placed on the port
+            record['connected'].append(
+                ('Uplink: ' if neighbor in vars.devices else 'Neighbour: ')
+                + label)
             if other is not None and not other.get('neighbor_device'):
                 other['neighbor_device'] = switch
                 other['neighbor_port'] = port
@@ -149,7 +191,7 @@ class PortMap (Plugin):
 
         learned = {}
         for (switch, port), record in vars.ports.items():
-            if self._is_member(record) or record.get('neighbor_device'):
+            if self._is_member(record) or                     record.get('neighbor_device') in vars.devices:
                 continue
             for mac in record['macs']:
                 learned.setdefault(mac, []).append((switch, port, record))

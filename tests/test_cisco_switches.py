@@ -74,9 +74,13 @@ def test_2960_ports(switches):
     assert gi4['channel'] == 'Po1'
     gi3 = port('access-sw', 'Gi0/3')
     assert gi3['channel'] == 'Po1'
-    # CDP, with the serial number trimmed off the device ID
-    assert (gi3['neighbor_device'], gi3['neighbor_port']) == \
-        ('core-sw', 'GigabitEthernet1/0/47')
+    # CDP from a CBS350: its ID is a MAC, so its address comes along for
+    # the port map to find it by
+    assert (gi3['neighbor_device'], gi3['neighbor_port'],
+            gi3['neighbor_address']) == ('00aabbccdda0', 'gi1/0/47',
+                                         '192.0.2.11')
+    # CDP from a Catalyst: the serial number is trimmed off
+    assert port('access-sw', 'Gi0/1')['neighbor_device'] == 'phone'
     po1 = port('access-sw', 'Po1')
     assert po1['mode'] == 'trunk' and 'vlan' not in po1
     assert ('access-sw', 'Vl1') not in vars.ports
@@ -98,7 +102,17 @@ def test_cbs350(switches):
     run()
 
     sw = vars.devices['core-sw']
+    # the VLAN interface named by number gets a readable name; internal
+    # addresses (oob, 169.254.x) are left out
+    assert list(sw['interfaces']) == ['vlan 1']
     assert sw['interfaces']['vlan 1']['addresses'] == '192.0.2.11'
+    assert '169.254.0.1' not in vars.hosts and '0.0.4.26' not in vars.hosts
+    # stack slots that aren't there, and unused port-channels, aren't ports
+    assert ('core-sw', 'te2/0/1') not in vars.ports
+    assert ('core-sw', 'Po2') not in vars.ports
+    gi1 = port('core-sw', 'gi1/0/1')
+    assert (gi1['neighbor_device'], gi1['neighbor_port'],
+            gi1['neighbor_mac']) == ('opnsense', 'igb1', 'aa:bb:cc:ff:ff:01')
     assert port('core-sw', 'gi1/0/1')['description'] == 'Firewall LAN'
     assert port('core-sw', 'gi1/0/1')['macs'] == {'aa:bb:cc:ff:ff:01': '1'}
     assert port('core-sw', 'gi1/0/2')['status'] == 'disabled'
@@ -135,13 +149,16 @@ def test_hosts_are_placed_on_their_ports(switches):
     assert vars.hosts['192.0.2.5']['connected_to'] == 'access-sw Gi0/1'
     assert vars.hosts['192.0.2.5']['name'] == 'Living room TV'
     assert vars.hosts['192.0.2.10']['connected_to'] == 'access-sw Gi0/2'
+    # the firewall said "OPNsense" over LLDP: found by its MAC instead
+    assert port('core-sw', 'gi1/0/1')['connected'] == ['Uplink: fw igb1']
     assert vars.devices['fw']['interfaces']['igb1']['connected_to'] == \
         'core-sw gi1/0/1'
-    # the port-channels face each other
+    # the port-channels face each other; the CBS350's MAC-like CDP ID is
+    # resolved to its device
     assert port('core-sw', 'Po1')['connected'] == \
         ['Uplink: access-sw Gi0/3']
     assert port('access-sw', 'Po1')['connected'] == \
-        ['Uplink: core-sw GigabitEthernet1/0/47']
+        ['Uplink: core-sw gi1/0/47']
     html = vars.output['955-switch-ports']['output'].render()
     assert '<td>Po1 (gi1/0/47, gi1/0/48)</td>' in html
     assert '<td>Po1 (Gi0/3, Gi0/4)</td>' in html

@@ -38,17 +38,28 @@ OID = {
     'vlanTrunkPortDynamicStatus': '1.3.6.1.4.1.9.9.46.1.6.1.1.14',
     'vmVlan': '1.3.6.1.4.1.9.9.68.1.2.2.1.2',
     # Neighbours: CISCO-CDP-MIB and LLDP-MIB
+    'cdpCacheAddress': '1.3.6.1.4.1.9.9.23.1.2.1.1.4',
     'cdpCacheDeviceId': '1.3.6.1.4.1.9.9.23.1.2.1.1.6',
     'cdpCacheDevicePort': '1.3.6.1.4.1.9.9.23.1.2.1.1.7',
     'lldpLocPortId': '1.0.8802.1.1.2.1.3.7.1.3',
+    'lldpRemChassisIdSubtype': '1.0.8802.1.1.2.1.4.1.1.4',
+    'lldpRemChassisId': '1.0.8802.1.1.2.1.4.1.1.5',
     'lldpRemPortId': '1.0.8802.1.1.2.1.4.1.1.7',
     'lldpRemPortDesc': '1.0.8802.1.1.2.1.4.1.1.8',
     'lldpRemSysName': '1.0.8802.1.1.2.1.4.1.1.9',
 }
 
-ETHERNET, GIGABIT, LAG = 6, 117, 161
+ETHERNET, GIGABIT, SVI, LAG = 6, 117, 53, 161
+UP, NOT_PRESENT = 1, 6
 STATUS = {1: 'up', 2: 'down', 3: 'testing', 5: 'dormant',
           6: 'not present', 7: 'down'}
+LLDP_MAC_CHASSIS = 4    # lldpRemChassisIdSubtype macAddress
+# Addresses that aren't the switch's on the network: internal ones (a
+# CBS350 has 169.254.0.1 and an unset out-of-band port in 0.0.0.0/8)
+NOT_REAL = [ipaddress.ip_network(n) for n in
+            ('0.0.0.0/8', '127.0.0.0/8', '169.254.0.0/16')]
+MAC_LIKE = re.compile(r'^[0-9a-f]{12}$|^([0-9a-f]{4}\.){2}[0-9a-f]{4}$|'
+                      r'^([0-9a-f]{2}[:-]){5}[0-9a-f]{2}$', re.IGNORECASE)
 LEARNED = 3             # dot1dTpFdbStatus / dot1qTpFdbStatus
 TRUNKING = 1            # vlanTrunkPortDynamicStatus
 RESERVED_VLANS = range(1002, 1006)
@@ -142,9 +153,12 @@ class CiscoSwitches (Plugin):
                  session.walk(OID['ipAdEntNetMask'])}
         for index, if_index in session.walk(OID['ipAdEntIfIndex']):
             ip = '.'.join(map(str, index))
-            if ipaddress.ip_address(ip).is_loopback:
+            if any(ipaddress.ip_address(ip) in n for n in NOT_REAL):
                 continue
             name = names.get(if_index, str(if_index))
+            # A CBS350 names its VLAN interfaces by number ("1")
+            if types.get(if_index) == SVI and name.isdigit():
+                name = 'vlan ' + name
             subnet = ''
             if masks.get(ip):
                 subnet = str(ipaddress.ip_interface(
@@ -170,7 +184,13 @@ class CiscoSwitches (Plugin):
                  or short_name(names[i]).startswith('po')}
         ports |= set(bridge.values()) | set(channel_of) | \
             set(channel_of.values())
-        ports = {i for i in ports if i in names}
+        channels = set(channel_of.values())
+        ports = {i for i in ports if i in names
+                 # Stack slots a switch reports but doesn't have
+                 and (oper.get(i) != NOT_PRESENT or i in channel_of)
+                 # Port-channels that aren't set up
+                 and not (self._is_channel(types, names, i)
+                          and i not in channels and oper.get(i) != UP)}
 
         # VLAN and mode: Cisco's own MIBs (2960), else the Q-BRIDGE PVID
         access_vlan = self._table(session, 'vmVlan')
@@ -198,8 +218,7 @@ class CiscoSwitches (Plugin):
             if vlan and fields.get('mode') != 'trunk':
                 fields['vlan'] = str(vlan)
             if if_index in neighbours:
-                fields['neighbor_device'], fields['neighbor_port'] = \
-                    neighbours[if_index]
+                fields.update(neighbours[if_index])
             self.addPort(device, names[if_index], source='CiscoSwitches',
                          **fields)
 
@@ -212,18 +231,35 @@ class CiscoSwitches (Plugin):
         self._logger.info('{0}: {1} ports, {2} learned MAC addresses'.format(
             device, len(ports), count))
 
+    @staticmethod
+    def _is_channel(types, names, if_index):
+        return types.get(if_index) == LAG or \
+            short_name(names.get(if_index, '')).startswith('po')
+
     def _neighbours(self, session, names):
-        """{ifIndex: (neighbour device, its port)} from CDP, then LLDP."""
+        """{ifIndex: {neighbor_device, neighbor_port, and neighbor_address
+        or neighbor_mac when known}} from CDP, then LLDP. The port map uses
+        the address or MAC to find the device when the name isn't its own
+        (a CBS350 sends its MAC as its CDP device ID; OPNsense says
+        "OPNsense" over LLDP)."""
         found = {}
         ports = {index: snmp.text(v) for index, v in
                  session.walk(OID['cdpCacheDevicePort'])}
+        addresses = {index: v for index, v in
+                     session.walk(OID['cdpCacheAddress'])}
         for index, value in session.walk(OID['cdpCacheDeviceId']):
             name = snmp.text(value)
             # CDP device IDs can carry a serial: "sw1.example.com(FOC123)"
             name = re.sub(r'\(.*\)$', '', name)
-            if name:
-                found.setdefault(index[0], (device_key(name),
-                                            ports.get(index, '')))
+            if not name:
+                continue
+            entry = {'neighbor_device': name if MAC_LIKE.match(name)
+                     else device_key(name),
+                     'neighbor_port': ports.get(index, '')}
+            address = addresses.get(index)
+            if isinstance(address, bytes) and len(address) == 4:
+                entry['neighbor_address'] = '.'.join(map(str, address))
+            found.setdefault(index[0], entry)
 
         # LLDP numbers ports its own way: match its port IDs to ifNames
         by_name = {short_name(n): i for i, n in names.items()}
@@ -232,6 +268,8 @@ class CiscoSwitches (Plugin):
                  if len(index) == 1}
         port_ids = dict(session.walk(OID['lldpRemPortId']))
         port_descs = dict(session.walk(OID['lldpRemPortDesc']))
+        chassis = dict(session.walk(OID['lldpRemChassisId']))
+        chassis_kind = dict(session.walk(OID['lldpRemChassisIdSubtype']))
         for index, value in session.walk(OID['lldpRemSysName']):
             if len(index) < 3:
                 continue
@@ -244,7 +282,14 @@ class CiscoSwitches (Plugin):
             # A port ID that's a MAC address says less than the description
             port = snmp.text(port) if port and not snmp.mac(port) else \
                 snmp.text(port_descs.get(index))
-            found.setdefault(if_index, (device_key(name), port))
+            entry = {'neighbor_device': device_key(name),
+                     'neighbor_port': port}
+            if chassis_kind.get(index) == LLDP_MAC_CHASSIS:
+                entry['neighbor_mac'] = snmp.mac(chassis.get(index))
+            # LLDP's name beats a CDP device ID that's only a MAC address
+            if if_index not in found or \
+                    MAC_LIKE.match(found[if_index]['neighbor_device']):
+                found[if_index] = dict(found.get(if_index, {}), **entry)
         return found
 
     def _mac_table(self, session, bridge):

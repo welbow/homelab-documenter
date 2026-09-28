@@ -43,6 +43,7 @@ def switch():
     for mac in ('aa:bb:cc:00:00:05', 'aa:bb:cc:00:00:70',
                 'aa:bb:cc:00:00:99'):
         s.addPortMac('core-sw', 'Po1', mac, 1)
+    s.addDevice('access-sw', type='switch')
     s.addPort('access-sw', 'Gi0/1')
     s.addPortMac('access-sw', 'Gi0/2', 'aa:bb:cc:00:00:99', 1)
     # The firewall's LAN interface on Gi1/0/1 (no CDP/LLDP from it)
@@ -215,3 +216,16 @@ def test_devices_and_ports_survive_a_partial_rebuild(monkeypatch):
     assert vars.devices == devices and vars.ports == ports
     assert vars.ports[('sw', 'Gi1/0/1')]['macs'] == \
         {'aa:bb:cc:00:00:01': '10'}
+
+
+def test_unknown_neighbour_is_not_an_uplink(switch):
+    # an IP phone announces itself over CDP; the PC behind it is still
+    # placed on the port
+    switch.addPort('core-sw', 'Gi1/0/5', neighbor_device='phone',
+                   neighbor_port='Port 1')
+
+    run()
+
+    assert port('core-sw', 'Gi1/0/5')['connected'] == \
+        ['Neighbour: phone Port 1', 'Living room TV (192.0.2.5)']
+    assert vars.hosts['192.0.2.5']['connected_to'] == 'core-sw Gi1/0/5'
