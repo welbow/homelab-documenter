@@ -15,7 +15,7 @@ from dominate.tags import *
 
 import credentials
 import vars
-from Plugin import Plugin
+from Plugin import Plugin, device_key
 
 # Read-only endpoints of the OPNsense REST API, with the privilege (as
 # named in System > Access > Users) the API user needs for each
@@ -91,6 +91,8 @@ class OPNsense (Plugin):
 
         self._logger.info('Reading {0}'.format(self._url))
         interfaces = self._interfaces()
+        self._name = self._firewall_name()
+        self._add_device(interfaces)
         self._add_firewall(interfaces)
         count = self._add_arp(interfaces)
         if self._config.get('leases', 0) == 1:
@@ -252,17 +254,41 @@ class OPNsense (Plugin):
                                  'config.json section)'.format(e))
             return ''
 
+    def _device_name(self):
+        """The firewall's name in vars.devices: its hostname, else the host
+        in "url"."""
+        return self._name or urllib.parse.urlsplit(self._url).hostname
+
+    def _add_device(self, interfaces):
+        """The firewall as one device (#19), with its interfaces: the
+        physical and VLAN interfaces by device name (igb1, vlan0.3), so a
+        switch port whose neighbour is "<firewall> igb1" lines up."""
+        if not interfaces:
+            return
+        device = self._device_name()
+        self.addDevice(device, source='OPNsense', type='router',
+                       hostname=self._name)
+        for name, iface in interfaces.items():
+            self.addInterface(device, name, source='OPNsense',
+                              description=iface['name'], mac=_mac(iface['mac']),
+                              addresses='DHCP' if iface['dhcp'] else
+                              iface['address'],
+                              subnet='' if iface['dhcp'] else iface['subnet'],
+                              vlan=iface['vlan'], status=iface['status'])
+
     def _add_firewall(self, interfaces):
         addresses = [(device, iface) for device, iface in interfaces.items()
                      if iface['address'] and not iface['excluded']]
         if not addresses:
             return
         # On every one of its addresses; where reverse DNS (nmap) already
-        # named an address, that name stays (the usual merge rule)
-        name = self._firewall_name()
-        for device, iface in addresses:
+        # named an address, that name stays (the usual merge rule). Each is
+        # linked to the firewall's device record.
+        name = self._name
+        device = device_key(self._device_name())
+        for _, iface in addresses:
             self.addHost(iface['address'], source='OPNsense', type='router',
-                         hostname=name,
+                         hostname=name, device=device,
                          mac=_mac(iface['mac']), subnet=iface['subnet'],
                          interface=iface['name'])
 

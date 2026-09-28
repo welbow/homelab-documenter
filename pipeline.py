@@ -98,7 +98,8 @@ def number(plugin):
 
 def always_runs(plugin):
     """The config loader and the output plugins run on every rebuild."""
-    return directory(plugin) == NEVER_SKIP or number(plugin) >= OUTPUT_FROM
+    return directory(plugin) == NEVER_SKIP or \
+        number(plugin) >= OUTPUT_FROM or getattr(plugin, 'always_run', False)
 
 
 def source_mtime(plugin):
@@ -120,12 +121,15 @@ def run_recorded(plugin):
     creds_before = dict(vars.creds)
     vars.recording = []
     vars.recording_networks = []
+    vars.recording_devices = []
     try:
         plugin.run()
         hosts = vars.recording
         networks = vars.recording_networks
+        devices = vars.recording_devices
     finally:
         vars.recording = vars.recording_networks = None
+        vars.recording_devices = None
     vars.plugin_cache[directory(plugin)] = {
         'output': {k: v for k, v in vars.output.items()
                    if output_before.get(k) is not v},
@@ -133,6 +137,7 @@ def run_recorded(plugin):
                   if creds_before.get(k) is not v},
         'hosts': hosts,
         'networks': networks,
+        'devices': devices,
         'config': config_section(plugin),
         'mtime': source_mtime(plugin),
     }
@@ -149,6 +154,14 @@ def replay(plugin):
         plugin.addHost(ip, source=source, **fields)
     for subnet, source, fields in cached.get('networks', []):
         plugin.addNetwork(subnet, source=source, **fields)
+    for kind, device, name, source, fields in cached.get('devices', []):
+        if kind == 'mac':
+            plugin.addInterfaceMac(device, name, fields['mac'],
+                                   fields['vlan'], source=source)
+        elif kind == 'interface':
+            plugin.addInterface(device, name, source=source, **fields)
+        else:
+            plugin.addDevice(device, source=source, **fields)
 
 
 def why_rerun(plugin, only):

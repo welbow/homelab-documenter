@@ -1,7 +1,19 @@
 import vars
+import ipaddress
 import os
 global logging
 import logging
+
+
+def device_key(name):
+    """How a device is named in vars.devices: its short hostname in
+    lower case ("Core-SW.example.com" -> "core-sw"), or an IP address as
+    it is."""
+    name = (name or '').strip()
+    try:
+        return str(ipaddress.ip_address(name))
+    except ValueError:
+        return name.split('.')[0].lower()
 
 
 # Define our default class
@@ -10,6 +22,10 @@ class Plugin:
     # Slow or needs a login (network scans, password managers): a partial
     # rebuild leaves it unticked by default and reuses its last results
     expensive = False
+    # Runs on every rebuild, never reusing earlier results: for plugins that
+    # combine what the others found (e.g. the port map), like the output
+    # plugins (900+) do
+    always_run = False
 
     def getConfig(self) -> bool:
         # Corner case since a plugin loads the config - don't break that
@@ -96,6 +112,56 @@ class Plugin:
         network = vars.networks.setdefault(subnet, {'subnet': subnet,
                                                     'sources': []})
         self._merge(network, 'Network ' + subnet, source, fields)
+
+    def addDevice(self, device, source=None, **fields):
+        """Add what this plugin knows about a device (one machine, e.g.
+        type) to vars.devices. Link its addresses with addHost(ip,
+        device=...); device is its hostname or IP address (device_key)."""
+        source = source or type(self).__name__
+        device = device_key(device)
+        if vars.recording_devices is not None:
+            vars.recording_devices.append(
+                ('device', device, None, source, dict(fields)))
+        self._merge(self._device(device), 'Device ' + device, source,
+                    fields)
+
+    def addInterface(self, device, name, source=None, **fields):
+        """Add what this plugin knows about one of a device's interfaces
+        (a switch port, a firewall interface) to vars.devices, with the same
+        merge rules as addHost."""
+        source = source or type(self).__name__
+        device = device_key(device)
+        if vars.recording_devices is not None:
+            vars.recording_devices.append(
+                ('interface', device, name, source, dict(fields)))
+        record = self._device(device)
+        if source not in record['sources']:
+            record['sources'].append(source)
+        self._merge(self._interface(device, name),
+                    'Interface {0} {1}'.format(device, name), source, fields)
+
+    def addInterfaceMac(self, device, name, mac, vlan='', source=None):
+        """A MAC address learned on a device's interface (e.g. from a
+        switch's MAC address table), optionally with its VLAN."""
+        source = source or type(self).__name__
+        device = device_key(device)
+        if vars.recording_devices is not None:
+            vars.recording_devices.append(
+                ('mac', device, name, source, {'mac': mac, 'vlan': vlan}))
+        interface = self._interface(device, name)
+        if source not in interface['sources']:
+            interface['sources'].append(source)
+        mac = mac.lower()
+        if not interface['macs'].get(mac):
+            interface['macs'][mac] = str(vlan or '')
+
+    def _device(self, device):
+        return vars.devices.setdefault(device, {
+            'device': device, 'sources': [], 'interfaces': {}})
+
+    def _interface(self, device, name):
+        return self._device(device)['interfaces'].setdefault(name, {
+            'name': name, 'sources': [], 'macs': {}})
 
     def _merge(self, record, label, source, fields):
         if source not in record['sources']:

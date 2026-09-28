@@ -23,6 +23,9 @@ hosts_keys = {
     'Subnet': 'subnet',
     # Firewall interface or VLAN the host is on (OPNsense)
     'Interface': 'interface',
+    # The switch port (or other device's interface) the host is plugged
+    # into, e.g. "core-sw Gi1/0/5" (from the port map, #19)
+    'Connected to': 'connected_to',
     'MAC Address': 'mac',
     'Vendor': 'vendor',
     'Seen by': 'sources',
@@ -36,6 +39,18 @@ hosts_keys = {
 # 'sources', 'name', 'purpose'}}. Plugins that describe networks (e.g. the
 # OPNsense Networks section) read it.
 networks = {}
+# Devices and their interfaces (#19): a device is one machine, which can
+# have several addresses (rows in hosts, linked by their "device" field)
+# and several interfaces. A switch is a device whose interfaces are its
+# ports; the firewall is one device with all its interfaces.
+#   {device: {'device', 'sources', 'type', 'interfaces': {name: {
+#       'name', 'sources', 'macs': {learned mac: vlan},
+#       description, status, speed, vlan, mode, mac, addresses,
+#       peer_device, peer_interface}}}}
+# device is the short hostname (Plugin.device_key), as CDP/LLDP neighbours
+# report it. Data plugins add to it with Plugin.addInterface and
+# addInterfaceMac.
+devices = {}
 creds = {}
 creds_keys = {
     'Name': 'name',
@@ -63,12 +78,13 @@ cleanups = []
 sessions = {}
 # Each data plugin's results from its last run in this preview, for partial
 # rebuilds (#25): {directory: {'output', 'creds', 'hosts', 'networks',
-# 'config', 'mtime'}}. Memory only: it can hold passwords.
+# 'devices', 'config', 'mtime'}}. Memory only: it can hold passwords.
 plugin_cache = {}
 # While a plugin runs during a preview: the addHost and addNetwork calls
 # it makes
 recording = None
 recording_networks = None
+recording_devices = None
 # What the last run did: {'ran': [...], 'replayed': [...], 'notes': [...]}
 last_run = {}
 
@@ -77,9 +93,9 @@ last_run = {}
 # as hosts_keys, and the functions below) comes from the file anew. A new
 # state variable goes here too.
 STATE = ('data_dir', 'build_dir', 'page', 'config', 'hosts', 'networks',
-         'creds', 'output', 'skipped', 'stamp', 'keep_alive', 'cleanups',
-         'sessions', 'plugin_cache', 'recording', 'recording_networks',
-         'last_run')
+         'devices', 'creds', 'output', 'skipped', 'stamp', 'keep_alive',
+         'cleanups', 'sessions', 'plugin_cache', 'recording',
+         'recording_networks', 'recording_devices', 'last_run')
 
 
 def section_keys():
@@ -95,8 +111,8 @@ def section_keys():
 
 def reset(new_data_dir=os.curdir):
     """Clear the state plugins share, so one run can't leak into the next."""
-    global data_dir, build_dir, page, config, hosts, networks, creds, output
-    global skipped, stamp
+    global data_dir, build_dir, page, config, hosts, networks, devices
+    global creds, output, skipped, stamp
     data_dir = new_data_dir
     build_dir = os.environ.get('BUILD_DIR', '').strip() or \
         os.path.join(data_dir, 'build')
@@ -104,6 +120,7 @@ def reset(new_data_dir=os.curdir):
     config = {}
     hosts = {}
     networks = {}
+    devices = {}
     creds = {}
     output = {}
     skipped = []

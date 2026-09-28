@@ -413,3 +413,28 @@ def test_network_section_can_be_just_switched_on(firewall):
 
     section = vars.output['150-opnsense-networks']
     assert section['title'] == 'Networks'
+
+
+def test_the_firewall_is_one_device_with_its_interfaces(firewall):
+    run()
+
+    fw = vars.devices['fw']       # from fw.example.com
+    assert fw['type'] == 'router'
+    igb1 = fw['interfaces']['igb1']
+    assert igb1['description'] == 'LAN'
+    assert igb1['addresses'] == '192.0.2.1'
+    assert igb1['mac'] == '00:0d:b9:00:00:01'
+    assert fw['interfaces']['vlan01']['vlan'] == '30'
+    assert fw['interfaces']['igb0']['addresses'] == 'DHCP'   # the WAN
+    # its address rows point at the device
+    assert vars.hosts['192.0.2.1']['device'] == 'fw'
+    assert vars.hosts['198.51.100.1']['device'] == 'fw'
+
+
+def test_device_named_after_the_url_without_a_hostname(firewall):
+    firewall.responses['diagnostics/system/system_information'] = 403
+
+    run()
+
+    assert '192.0.2.1' in vars.devices
+    assert vars.hosts['192.0.2.1']['device'] == '192.0.2.1'

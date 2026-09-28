@@ -205,6 +205,7 @@ your environment; each is off unless its config section enables it.
 | 110 | [MSDHCP](plugins/110-msdhcp/README.md) | Adds devices from a Microsoft (Windows Server) DHCP server's leases and reservations (optional; only if you use one). |
 | 150 | [OPNsense](plugins/150-opnsense/README.md) | Adds devices from an OPNsense firewall's ARP table, with MAC addresses, vendors and interfaces (optional; only if you use OPNsense). |
 | 500 | [BitwardenPasswords](plugins/500-bitwarden-passwords/README.md) | Lists the items in a Bitwarden vault (optional; only if you use Bitwarden). |
+| 800 | [PortMap](plugins/800-port-map/README.md) | Works out which switch port each device is plugged into, from what the other plugins found. |
 | 900 | [OutputCredInfo](plugins/900-output-cred-info/README.md) | Renders the credential tables that password plugins collect. |
 | 900 | [OutputHostInfo](plugins/900-output-host-info/README.md) | Renders the device table. |
 | 950 | [TableOfContents](plugins/950-generate-table-of-contents/README.md) | Builds the table of contents, after every other section exists. |

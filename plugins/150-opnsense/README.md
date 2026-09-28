@@ -36,6 +36,8 @@ Reads an OPNsense firewall through its REST API:
 
 **Credentials:** `opnsense_api_key` and `opnsense_api_secret`.
 
+**Adds the firewall as one device** (type router) with all its interfaces (name, description, VLAN, MAC, address), so a switch port whose neighbour is the firewall lines up with its interface (see [PortMap](../800-port-map/README.md)); its address rows link to it.
+
 **Adds** to the device table (via `addHost`, Seen by **OPNsense**): MAC
 address, vendor, hostname (when the firewall knows it), subnet and
 interface for each ARP entry; each of the firewall's interface addresses

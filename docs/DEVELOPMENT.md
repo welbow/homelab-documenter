@@ -184,6 +184,17 @@ def getPlugin():
 - `addNetwork(subnet, source, **fields)` does the same for a network
   (`subnet` in CIDR form, e.g. `name`, `purpose`) in `vars.networks`, for
   plugins that describe networks.
+- `addDevice(device, **fields)`, `addInterface(device, name, **fields)`
+  and `addInterfaceMac(device, name, mac, vlan)` describe a device (one
+  machine, e.g. a switch or the firewall) and its interfaces in
+  `vars.devices`; `device` is its hostname (`Plugin.device_key` makes it
+  the short, lower-case form CDP/LLDP use). Link a host row to its device
+  with `addHost(ip, device=...)`. Interface fields in use: `description`,
+  `status`, `speed`, `vlan`, `mode`, `mac`, `addresses`, `subnet`,
+  `peer_device`, `peer_interface`. [PortMap](../plugins/800-port-map/README.md)
+  joins them up after discovery.
+- Set `always_run = True` for a plugin that combines what the others
+  found: it runs on every rebuild instead of reusing its last results.
 - `credentials.get(name)` returns a stored credential (or None); tell
   users to store it with `hd secret set <name>`, and use
   `credentials.set_command(name)` for that in messages.
