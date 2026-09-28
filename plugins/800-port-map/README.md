@@ -1,30 +1,47 @@
 # PortMap (800)
 
-Joins up what the discovery plugins found about devices and their
-interfaces: which switch port each host is plugged into, and which
-interfaces face each other. On by default; it has nothing to do until a
-plugin reports device interfaces (e.g. [OPNsense](../150-opnsense/README.md),
-or a switch plugin).
+Joins up what the discovery plugins found about switch ports, devices and
+hosts: which switch port each host (or device interface) is plugged into.
+Adds the device table's **Connected to** column and the **Switch ports**
+section. On by default; it has nothing to do until a switch plugin (e.g.
+[CiscoSwitches](../120-cisco-switches/README.md)) reports ports.
 
 ```json
-"PortMap": {"enabled": 0}
+"PortMap": {
+  "section": {"title": "Switch ports", "seq_number": "955",
+              "header": "Which device is on each switch port"}
+}
 ```
 
-Only needed to turn it off. It runs on every rebuild, after all discovery
-(its number is in the 800s, see [plugins.md](../../docs/plugins.md)).
+| Key | Required | Meaning |
+|---|---|---|
+| `enabled` | no | `0` turns it off. |
+| `section` | no | The Switch ports section: `title` (default "Switch ports"), `seq_number` (default `955`) and `header`; `0` leaves the section out (Connected to still fills in). |
+
+It runs on every rebuild, after all discovery (its number is in the 800s,
+see [plugins.md](../../docs/plugins.md)).
 
 **What it does**
-- **Neighbours:** when a device reports the neighbour on one of its
-  interfaces (CDP/LLDP: "fw igb1"), the neighbour's interface is linked
-  back, if that device is known. Long and short interface names match
-  (`GigabitEthernet1/0/5` = `Gi1/0/5`).
-- **Hosts on ports:** each MAC address a switch learned on a port is matched
-  with the hosts' MAC addresses (from the firewall's ARP table, DHCP). A
-  MAC seen on several ports belongs to the one with the fewest other MACs,
-  the port it's plugged into rather than the uplinks it was also seen on;
-  ports facing another known device are uplinks and skipped.
-- The host's row in the device table gets **Connected to** (e.g.
-  `core-sw Gi1/0/5`), or `core-sw Gi1/0/7 (shared)` when several devices
-  are on that port (an access point or an unmanaged switch behind it).
+- **Port-channels:** member ports are listed with their channel
+  (`Po1 (Gi1/0/47, Gi1/0/48)`), and a member's CDP/LLDP neighbour counts
+  for the channel.
+- **Uplinks:** a port whose neighbour is another device shows it
+  (`Uplink: access-sw Gi0/3`), and the other side learns it too. If the
+  neighbour's interface is known (e.g. the firewall's `igb1`), that
+  interface records which switch port it's on. Long and short interface
+  names match (`GigabitEthernet1/0/5` = `Gi1/0/5`).
+- **Everything else:** each MAC a switch learned is placed on the port
+  where it was learned with the fewest other MACs, the port it's plugged
+  into rather than the uplinks it was also seen on, and matched with the
+  hosts' MAC addresses (from the firewall's ARP table, DHCP) and the
+  devices' interfaces.
+- The host's row gets **Connected to** (e.g. `core-sw Gi1/0/5`), or
+  `core-sw Gi1/0/7 (shared)` when several devices are on that port (an
+  access point or an unmanaged switch behind it).
 - A host alone on a port gets the port's description as its **Name**,
   unless something else named it; a host override always wins.
+
+**The Switch ports section:** one table per switch, every port (members
+under their channel): Port, Description, Status, Speed, VLAN, Mode,
+Connected to (the host's name and address, the device interface, or the
+uplink's neighbour).

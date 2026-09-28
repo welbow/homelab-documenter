@@ -3,3 +3,4 @@ python-nmap
 tzdata
 cryptography
 pypsrp
+pysnmp

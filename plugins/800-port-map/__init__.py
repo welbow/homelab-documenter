@@ -2,8 +2,10 @@ global logging
 import logging
 import re
 
+from dominate.tags import *
+
 import vars
-from Plugin import Plugin
+from Plugin import Plugin, device_key
 
 # Long interface names as CDP/LLDP often report them, and the short forms
 # switches show in their own lists, so "GigabitEthernet1/0/5" and "Gi1/0/5"
@@ -12,7 +14,7 @@ ABBREVIATIONS = (
     ('tengigabitethernet', 'te'), ('twentyfivegige', 'twe'),
     ('fortygigabitethernet', 'fo'), ('hundredgige', 'hu'),
     ('gigabitethernet', 'gi'), ('fastethernet', 'fa'),
-    ('ethernet', 'eth'), ('port-channel', 'po'),
+    ('port-channel', 'po'), ('ethernet', 'eth'),
 )
 
 
@@ -25,96 +27,207 @@ def short_name(name):
     return name
 
 
-class PortMap (Plugin):
-    """Joins up what the discovery plugins found about devices and their
-    interfaces (#19): links each interface to the interface it's connected
-    to (from CDP/LLDP neighbours, both ways), and matches the MAC addresses
-    a switch learned on each port with the hosts' MAC addresses, so a
-    host's row says which switch port it's plugged into ("Connected to"),
-    and a port knows which hosts are behind it.
+def port_order(name):
+    """Sort key: Gi1/0/2 before Gi1/0/10, port-channels last."""
+    parts = re.split(r'(\d+)', name)
+    return (name.lower().startswith(('po', 'port-channel')),
+            [int(p) if p.isdigit() else p.lower() for p in parts])
 
-    A MAC is placed on the port where it was learned with the fewest other
-    MACs: the port it's actually plugged into, not the uplinks it was also
-    seen on. With several devices on that port (an access point or an
-    unmanaged switch behind it), each gets "(shared)". A port's description
-    becomes a host's friendly Name when the host is alone on the port and
-    nothing else named it (a host override still wins). Runs on every
-    rebuild, after all discovery."""
+
+class PortMap (Plugin):
+    """Joins up what the discovery plugins found about switch ports and
+    devices (#19), and adds the Switch ports section: which host or device
+    interface is on each port.
+
+    - Port-channels: a member port's neighbour counts for its channel, and
+      the channel is listed with its members.
+    - Uplinks (a port whose CDP/LLDP neighbour is another device) show the
+      neighbour; if that's a device interface we know (the firewall's igb1),
+      the interface says which switch port it's connected to.
+    - Every other MAC a switch learned is placed on the port where it was
+      learned with the fewest other MACs (the port it's plugged into, not
+      the uplinks it was also seen on), and matched with the hosts' and the
+      devices' interfaces' MAC addresses.
+    - A host's row says where it's plugged in ("Connected to"), with
+      "(shared)" if several devices are on that port (an access point or an
+      unmanaged switch behind it). A host alone on a port gets the port's
+      description as its Name, if nothing else named it.
+
+    Runs on every rebuild, after all discovery. On by default."""
     always_run = True
 
     def __init__(self):
         super().__init__()
 
     def run(self):
-        # On unless config.json turns it off; it has nothing to do until a
-        # plugin reports interfaces
-        config = vars.config.get('plugins', {}).get('PortMap', {})
-        if config.get('enabled', 1) != 1 or not vars.devices:
+        self._config = vars.config.get('plugins', {}).get('PortMap', {})
+        if self._config.get('enabled', 1) != 1 or not vars.ports:
             return
-        self._link_neighbours()
-        self._place_hosts()
+        self._roll_up_channels()
+        self._uplinks()
+        self._place_macs()
+        self._add_section()
 
-    def _find(self, device, name):
+    def _ports_of(self, switch):
+        return {port: record for (sw, port), record in vars.ports.items()
+                if sw == switch}
+
+    def _find_port(self, switch, name):
+        wanted = short_name(name)
+        for (sw, port), record in vars.ports.items():
+            if sw == switch and short_name(port) == wanted:
+                return record
+        return None
+
+    def _find_interface(self, device, name):
         record = vars.devices.get(device)
         if not record:
             return None
-        interfaces = record['interfaces']
-        if name in interfaces:
-            return interfaces[name]
         wanted = short_name(name)
-        for iface in interfaces.values():
+        for iface in record['interfaces'].values():
             if short_name(iface['name']) == wanted:
                 return iface
         return None
 
-    def _link_neighbours(self):
-        """A neighbour reported on one side is linked on the other side too,
-        if that device is known."""
-        for device, record in vars.devices.items():
-            for iface in record['interfaces'].values():
-                peer = iface.get('peer_device')
-                if not peer:
-                    continue
-                other = self._find(peer, iface.get('peer_interface', ''))
-                if other is not None and not other.get('peer_device'):
-                    other['peer_device'] = device
-                    other['peer_interface'] = iface['name']
+    def _roll_up_channels(self):
+        """Members of a port-channel: listed under it, and their neighbour
+        and learned MACs count for the channel."""
+        for record in vars.ports.values():
+            record['connected'] = []
+            record['members'] = []
+        for (switch, port), record in list(vars.ports.items()):
+            channel = record.get('channel')
+            if not channel:
+                continue
+            parent = self._find_port(switch, channel)
+            if parent is None:
+                parent = self._port(switch, channel)
+                parent.update(connected=[], members=[])
+            parent['members'].append(port)
+            if record.get('neighbor_device') and \
+                    not parent.get('neighbor_device'):
+                parent['neighbor_device'] = record['neighbor_device']
+                parent['neighbor_port'] = record.get('neighbor_port', '')
+            for mac, vlan in record['macs'].items():
+                parent['macs'].setdefault(mac, vlan)
+        for record in vars.ports.values():
+            record['members'].sort(key=port_order)
 
-    def _place_hosts(self):
-        # MAC -> host IPs, and MAC -> the ports it was learned on
-        by_mac = {}
+    def _is_member(self, record):
+        return bool(record.get('channel'))
+
+    def _uplinks(self):
+        for (switch, port), record in vars.ports.items():
+            neighbor = record.get('neighbor_device')
+            if not neighbor or self._is_member(record):
+                continue
+            neighbor = device_key(neighbor)
+            where = '{0} {1}'.format(switch, port)
+            other = self._find_port(neighbor, record.get('neighbor_port', ''))
+            iface = self._find_interface(neighbor,
+                                         record.get('neighbor_port', ''))
+            if iface is not None and not iface.get('connected_to'):
+                iface['connected_to'] = where
+            label = '{0} {1}'.format(
+                neighbor, record.get('neighbor_port', '')).strip()
+            record['connected'].append('Uplink: ' + label)
+            if other is not None and not other.get('neighbor_device'):
+                other['neighbor_device'] = switch
+                other['neighbor_port'] = port
+
+    def _place_macs(self):
+        hosts_by_mac = {}
         for ip, host in vars.hosts.items():
             if host.get('mac'):
-                by_mac.setdefault(host['mac'].lower(), []).append(ip)
-        learned = {}
+                hosts_by_mac.setdefault(host['mac'].lower(), []).append(ip)
+        ifaces_by_mac = {}
         for device, record in vars.devices.items():
             for iface in record['interfaces'].values():
-                iface['connected_hosts'] = []
-                # A port facing another known device is an uplink, not
-                # where hosts are plugged in
-                if iface.get('peer_device') in vars.devices:
-                    continue
-                for mac in iface['macs']:
-                    learned.setdefault(mac, []).append((device, iface))
+                if iface.get('mac'):
+                    ifaces_by_mac.setdefault(iface['mac'].lower(), []).append(
+                        (device, iface))
 
-        for mac, ports in learned.items():
-            ips = by_mac.get(mac)
-            if not ips:
+        learned = {}
+        for (switch, port), record in vars.ports.items():
+            if self._is_member(record) or record.get('neighbor_device'):
                 continue
-            device, iface = min(ports, key=lambda p: len(p[1]['macs']))
-            alone = len(iface['macs']) == 1
-            where = '{0} {1}'.format(device, iface['name'])
-            if not alone:
-                where += ' (shared)'
+            for mac in record['macs']:
+                learned.setdefault(mac, []).append((switch, port, record))
+
+        for mac, places in learned.items():
+            ips = hosts_by_mac.get(mac, [])
+            ifaces = ifaces_by_mac.get(mac, [])
+            if not ips and not ifaces:
+                continue
+            switch, port, record = min(places,
+                                       key=lambda p: len(p[2]['macs']))
+            alone = len(record['macs']) == 1
+            where = '{0} {1}'.format(switch, port)
+            for device, iface in ifaces:
+                if device == switch:
+                    continue            # the switch's own interface
+                record['connected'].append('{0} {1}'.format(device,
+                                                            iface['name']))
+                iface.setdefault('connected_to', where)
             for ip in ips:
                 host = vars.hosts[ip]
-                if host.get('device') == device:
-                    continue    # the switch's own address
-                iface['connected_hosts'].append(ip)
+                if host.get('device') == switch:
+                    continue            # the switch's own address
+                if ifaces and host.get('device') in [d for d, _ in ifaces]:
+                    continue            # already listed as its interface
                 if not host.get('connected_to'):
-                    host['connected_to'] = where
-                if alone and iface.get('description') and not host.get('name'):
-                    host['name'] = iface['description']
+                    host['connected_to'] = where + ('' if alone
+                                                    else ' (shared)')
+                if alone and record.get('description') and \
+                        not host.get('name'):
+                    host['name'] = record['description']
+                record['connected'].append(self._host_label(ip, host))
+
+    def _host_label(self, ip, host):
+        name = host.get('name') or host.get('hostname')
+        return '{0} ({1})'.format(name, ip) if name else ip
+
+    def _add_section(self):
+        section = self._config.get('section', {})
+        if section == 0:
+            return
+        if not isinstance(section, dict):
+            section = {}
+        switches = sorted({switch for switch, _ in vars.ports})
+        with div() as d:
+            if section.get('header'):
+                p(section['header'])
+            for switch in switches:
+                h2(switch)
+                self._switch_table(switch)
+        self.addOutput(d, title=section.get('title', 'Switch ports'),
+                       seq=section.get('seq_number', '955'),
+                       keyname='switch-ports')
+
+    def _switch_table(self, switch):
+        ports = self._ports_of(switch)
+        # Member ports are listed with their channel
+        shown = sorted((name for name, r in ports.items()
+                        if not self._is_member(r)), key=port_order)
+        with table():
+            with thead(), tr():
+                for title in ('Port', 'Description', 'Status', 'Speed',
+                              'VLAN', 'Mode', 'Connected to'):
+                    th(title)
+            with tbody():
+                for name in shown:
+                    record = ports[name]
+                    label = name
+                    if record['members']:
+                        label += ' ({0})'.format(', '.join(record['members']))
+                    with tr():
+                        td(label)
+                        td(record.get('description', ''))
+                        td(record.get('status', ''))
+                        td(record.get('speed', ''))
+                        td(record.get('vlan', ''))
+                        td(record.get('mode', ''))
+                        td(', '.join(record['connected']))
 
 
 def getPlugin():

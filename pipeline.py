@@ -155,13 +155,15 @@ def replay(plugin):
     for subnet, source, fields in cached.get('networks', []):
         plugin.addNetwork(subnet, source=source, **fields)
     for kind, device, name, source, fields in cached.get('devices', []):
-        if kind == 'mac':
-            plugin.addInterfaceMac(device, name, fields['mac'],
-                                   fields['vlan'], source=source)
+        if kind == 'device':
+            plugin.addDevice(device, source=source, **fields)
         elif kind == 'interface':
             plugin.addInterface(device, name, source=source, **fields)
+        elif kind == 'port':
+            plugin.addPort(device, name, source=source, **fields)
         else:
-            plugin.addDevice(device, source=source, **fields)
+            plugin.addPortMac(device, name, fields['mac'], fields['vlan'],
+                              source=source)
 
 
 def why_rerun(plugin, only):

@@ -18,7 +18,7 @@ APP_DIR = os.path.dirname(os.path.abspath(__file__))
 # are serving the request) and this module; a change to them needs a
 # restart, and the Rebuild panel says so (restart_notes).
 RELOAD = ('pipeline', 'Plugin', 'credentials', 'hostpath', 'stamp',
-          'logconfig', 'stdin_value')
+          'logconfig', 'stdin_value', 'snmp')
 SERVER_FILES = ('delivery.py', 'homelab-documenter.py', 'reloader.py')
 # Copies of the dependency lists the image was built with (see the
 # Dockerfile), to tell when the image needs rebuilding

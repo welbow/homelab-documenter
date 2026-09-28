@@ -7,7 +7,8 @@ def test_discovers_all_plugins_in_numeric_order():
     names = [type(p).__name__ for p in pipeline.discover_plugins()]
 
     assert names == ['ConfigLoader', 'StaticFile', 'HostOverrides',
-                     'NmapPingScan', 'MSDHCP', 'OPNsense',
+                     'NmapPingScan', 'MSDHCP', 'CiscoSwitches',
+                     'OPNsense',
                      'BitwardenPasswords', 'PortMap', 'OutputCredInfo',
                      'OutputHostInfo', 'TableOfContents', 'HTMLOutput']
 

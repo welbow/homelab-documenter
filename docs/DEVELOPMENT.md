@@ -184,15 +184,23 @@ def getPlugin():
 - `addNetwork(subnet, source, **fields)` does the same for a network
   (`subnet` in CIDR form, e.g. `name`, `purpose`) in `vars.networks`, for
   plugins that describe networks.
-- `addDevice(device, **fields)`, `addInterface(device, name, **fields)`
-  and `addInterfaceMac(device, name, mac, vlan)` describe a device (one
-  machine, e.g. a switch or the firewall) and its interfaces in
-  `vars.devices`; `device` is its hostname (`Plugin.device_key` makes it
-  the short, lower-case form CDP/LLDP use). Link a host row to its device
-  with `addHost(ip, device=...)`. Interface fields in use: `description`,
-  `status`, `speed`, `vlan`, `mode`, `mac`, `addresses`, `subnet`,
-  `peer_device`, `peer_interface`. [PortMap](../plugins/800-port-map/README.md)
-  joins them up after discovery.
+- `addDevice(device, **fields)` and `addInterface(device, name, **fields)`
+  describe a device (one machine, e.g. a switch or the firewall) and its
+  L3 interfaces (with an address or a MAC of their own) in `vars.devices`;
+  `device` is its hostname (`Plugin.device_key` makes it the short,
+  lower-case form CDP/LLDP use). Link a host row to its device with
+  `addHost(ip, device=...)`. Interface fields in use: `description`,
+  `status`, `vlan`, `mac`, `addresses`, `subnet`.
+- `addPort(switch, port, **fields)` and `addPortMac(switch, port, mac,
+  vlan)` describe switch ports in `vars.ports` (fields: `description`,
+  `status`, `speed`, `vlan`, `mode`, `channel` for a port-channel member,
+  `neighbor_device`, `neighbor_port`). [PortMap](../plugins/800-port-map/README.md)
+  joins ports, devices and hosts up after discovery.
+- For SNMP, use `snmp.session(prefix, config, device)` (v2c/v3 settings
+  and credentials from the plugin's config, overridable per device; then
+  `get`/`walk`) and keep vendor MIB logic in the plugin, as
+  [CiscoSwitches](../plugins/120-cisco-switches/README.md) does. Name its
+  credentials `<plugin>_snmp_community` and so on.
 - Set `always_run = True` for a plugin that combines what the others
   found: it runs on every rebuild instead of reusing its last results.
 - `credentials.get(name)` returns a stored credential (or None); tell

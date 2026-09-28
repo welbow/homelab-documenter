@@ -41,16 +41,20 @@ hosts_keys = {
 networks = {}
 # Devices and their interfaces (#19): a device is one machine, which can
 # have several addresses (rows in hosts, linked by their "device" field)
-# and several interfaces. A switch is a device whose interfaces are its
-# ports; the firewall is one device with all its interfaces.
+# and several L3 interfaces (with an address, or a MAC of their own): the
+# firewall's interfaces, a switch's VLAN interfaces.
 #   {device: {'device', 'sources', 'type', 'interfaces': {name: {
-#       'name', 'sources', 'macs': {learned mac: vlan},
-#       description, status, speed, vlan, mode, mac, addresses,
-#       peer_device, peer_interface}}}}
+#       'name', 'sources', description, status, vlan, mac, addresses,
+#       subnet, connected_to}}}}
 # device is the short hostname (Plugin.device_key), as CDP/LLDP neighbours
-# report it. Data plugins add to it with Plugin.addInterface and
-# addInterfaceMac.
+# report it. Data plugins add to it with Plugin.addDevice/addInterface.
 devices = {}
+# Switch ports, by (switch, port name), kept apart from the devices'
+# interfaces: {'switch', 'port', 'sources', 'macs': {learned mac: vlan},
+# description, status, speed, vlan, mode, channel (the port-channel a
+# member port belongs to), neighbor_device, neighbor_port, connected
+# (what the port map found on it)}. From Plugin.addPort/addPortMac.
+ports = {}
 creds = {}
 creds_keys = {
     'Name': 'name',
@@ -78,7 +82,7 @@ cleanups = []
 sessions = {}
 # Each data plugin's results from its last run in this preview, for partial
 # rebuilds (#25): {directory: {'output', 'creds', 'hosts', 'networks',
-# 'devices', 'config', 'mtime'}}. Memory only: it can hold passwords.
+# 'devices', 'config', 'mtime'}}; 'devices' also holds ports. Memory only: it can hold passwords.
 plugin_cache = {}
 # While a plugin runs during a preview: the addHost and addNetwork calls
 # it makes
@@ -93,7 +97,8 @@ last_run = {}
 # as hosts_keys, and the functions below) comes from the file anew. A new
 # state variable goes here too.
 STATE = ('data_dir', 'build_dir', 'page', 'config', 'hosts', 'networks',
-         'devices', 'creds', 'output', 'skipped', 'stamp', 'keep_alive',
+         'devices', 'ports', 'creds', 'output', 'skipped', 'stamp',
+         'keep_alive',
          'cleanups', 'sessions', 'plugin_cache', 'recording',
          'recording_networks', 'recording_devices', 'last_run')
 
@@ -112,7 +117,7 @@ def section_keys():
 def reset(new_data_dir=os.curdir):
     """Clear the state plugins share, so one run can't leak into the next."""
     global data_dir, build_dir, page, config, hosts, networks, devices
-    global creds, output, skipped, stamp
+    global ports, creds, output, skipped, stamp
     data_dir = new_data_dir
     build_dir = os.environ.get('BUILD_DIR', '').strip() or \
         os.path.join(data_dir, 'build')
@@ -121,6 +126,7 @@ def reset(new_data_dir=os.curdir):
     hosts = {}
     networks = {}
     devices = {}
+    ports = {}
     creds = {}
     output = {}
     skipped = []

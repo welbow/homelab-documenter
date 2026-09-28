@@ -24,6 +24,10 @@
             "mode": "winrm",
             "server": "dc1.example.com"
         },
+        "CiscoSwitches": {
+            "enabled": 0,
+            "switches": [{"host": "192.0.2.11"}, {"host": "192.0.2.12"}]
+        },
         "OPNsense": {
             "enabled": 0,
             "url": "https://192.0.2.1",

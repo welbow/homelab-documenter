@@ -126,9 +126,9 @@ class Plugin:
                     fields)
 
     def addInterface(self, device, name, source=None, **fields):
-        """Add what this plugin knows about one of a device's interfaces
-        (a switch port, a firewall interface) to vars.devices, with the same
-        merge rules as addHost."""
+        """Add what this plugin knows about one of a device's L3 interfaces
+        (a firewall interface, a switch's VLAN interface) to vars.devices,
+        with the same merge rules as addHost. Switch ports go to addPort."""
         source = source or type(self).__name__
         device = device_key(device)
         if vars.recording_devices is not None:
@@ -140,20 +140,32 @@ class Plugin:
         self._merge(self._interface(device, name),
                     'Interface {0} {1}'.format(device, name), source, fields)
 
-    def addInterfaceMac(self, device, name, mac, vlan='', source=None):
-        """A MAC address learned on a device's interface (e.g. from a
-        switch's MAC address table), optionally with its VLAN."""
+    def addPort(self, switch, port, source=None, **fields):
+        """Add what this plugin knows about a switch port to vars.ports
+        (description, status, speed, vlan, mode, channel, neighbor_device,
+        neighbor_port), with the same merge rules as addHost."""
         source = source or type(self).__name__
-        device = device_key(device)
+        switch = device_key(switch)
         if vars.recording_devices is not None:
             vars.recording_devices.append(
-                ('mac', device, name, source, {'mac': mac, 'vlan': vlan}))
-        interface = self._interface(device, name)
-        if source not in interface['sources']:
-            interface['sources'].append(source)
+                ('port', switch, port, source, dict(fields)))
+        self._merge(self._port(switch, port),
+                    'Port {0} {1}'.format(switch, port), source, fields)
+
+    def addPortMac(self, switch, port, mac, vlan='', source=None):
+        """A MAC address the switch learned on a port (its MAC address
+        table), optionally with its VLAN."""
+        source = source or type(self).__name__
+        switch = device_key(switch)
+        if vars.recording_devices is not None:
+            vars.recording_devices.append(
+                ('portmac', switch, port, source, {'mac': mac, 'vlan': vlan}))
+        record = self._port(switch, port)
+        if source not in record['sources']:
+            record['sources'].append(source)
         mac = mac.lower()
-        if not interface['macs'].get(mac):
-            interface['macs'][mac] = str(vlan or '')
+        if not record['macs'].get(mac):
+            record['macs'][mac] = str(vlan or '')
 
     def _device(self, device):
         return vars.devices.setdefault(device, {
@@ -161,7 +173,11 @@ class Plugin:
 
     def _interface(self, device, name):
         return self._device(device)['interfaces'].setdefault(name, {
-            'name': name, 'sources': [], 'macs': {}})
+            'name': name, 'sources': []})
+
+    def _port(self, switch, port):
+        return vars.ports.setdefault((switch, port), {
+            'switch': switch, 'port': port, 'sources': [], 'macs': {}})
 
     def _merge(self, record, label, source, fields):
         if source not in record['sources']:
