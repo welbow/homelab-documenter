@@ -1,5 +1,6 @@
 global logging
 import logging
+import os
 
 from dominate import document
 from dominate.tags import *
@@ -30,6 +31,18 @@ PAGE_CSS = """
 }}
 """
 
+# On screen: table header rows stay in view while scrolling, and tables
+# with more than FILTER_MIN_ROWS rows get an Excel-style autofilter (sort,
+# a checklist of values per column) and a quick search box. Print hides
+# the controls and shows every row. Inline, so the exported page works
+# offline; without JavaScript the tables are plain.
+FILTER_MIN_ROWS = 10
+_HERE = os.path.dirname(os.path.abspath(__file__))
+with open(os.path.join(_HERE, 'table-filter.css'), encoding='utf-8') as _f:
+    TABLE_CSS = _f.read()
+with open(os.path.join(_HERE, 'table-filter.js'), encoding='utf-8') as _f:
+    FILTER_JS = 'var MIN_ROWS = {0};\n'.format(FILTER_MIN_ROWS) + _f.read()
+
 
 def css_string(text):
     """Text made safe inside a double-quoted CSS string."""
@@ -52,11 +65,15 @@ class HTMLOutput (Plugin):
 
         with document(title='Homelab Documentation') as doc:
             with doc.head:
+                meta(charset='utf-8')
                 # raw: dominate would HTML-escape the quotes and break the CSS
                 style(raw(PAGE_CSS.format(css_string(stamp_text))))
+                style(raw(TABLE_CSS))
                 if 'stylesheets' in self._config.keys():
                     for ss in self._config['stylesheets']:
                         link(rel='stylesheet', href=ss)
+                if self._config.get('table_filter', 1) == 1:
+                    script(raw(FILTER_JS))
 
 
             with doc.body as body:
@@ -87,7 +104,7 @@ class HTMLOutput (Plugin):
             self._config['outputfile'].replace('{date}', vars.stamp['date']))
         self._logger.info('Writing HTML to file {0}'.format(outputfilename))
         
-        with open(outputfilename, 'w') as html_file:
+        with open(outputfilename, 'w', encoding='utf-8') as html_file:
             html_file.write(str(doc))
 
         vars.page = outputfilename

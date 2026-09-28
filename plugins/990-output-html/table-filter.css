@@ -1,0 +1,47 @@
+/* Sticky headers and the autofilter (table-filter.js), screen only. */
+@media screen {
+  thead th {
+    position: sticky; top: 0; z-index: 1;
+    background: #fff; box-shadow: inset 0 -2px 0 #999;
+    white-space: nowrap;
+  }
+  tr.filtered-out { display: none; }
+  .table-filter { margin: 0.5em 0; }
+  .table-filter input { font: inherit; padding: 0.2em 0.4em; width: 20em; }
+  .table-filter span { margin: 0 0.75em; color: #555; }
+  .af-button {
+    margin-left: 0.3em; padding: 0 0.3em; font: inherit; font-size: 0.8em;
+    border: 1px solid #bbb; border-radius: 3px; background: #f4f4f4;
+    cursor: pointer; vertical-align: middle;
+  }
+  .af-button.af-active { background: #cde4ff; border-color: #4a8fe0; }
+  th.af-sorted-asc::after { content: " \2191"; }
+  th.af-sorted-desc::after { content: " \2193"; }
+  .af-panel {
+    position: fixed; z-index: 10; min-width: 14em; max-width: 24em;
+    padding: 0.4em; background: #fff; border: 1px solid #999;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2); font-weight: normal;
+    font-size: 0.95em; text-align: left;
+  }
+  .af-panel .af-action {
+    display: block; width: 100%; text-align: left; padding: 0.25em 0.4em;
+    font: inherit; border: 0; background: none; cursor: pointer;
+  }
+  .af-panel .af-action:hover:not(:disabled),
+  .af-panel .af-action:focus { background: #e8f0fe; }
+  .af-panel input[type=search] {
+    display: block; width: 100%; box-sizing: border-box; margin: 0.4em 0;
+    font: inherit; padding: 0.2em 0.4em;
+  }
+  .af-list {
+    max-height: 16em; overflow-y: auto; border: 1px solid #ddd;
+    padding: 0.2em 0.4em;
+  }
+  .af-list label { display: block; white-space: nowrap; }
+  .af-buttons { text-align: right; margin-top: 0.4em; }
+  .af-buttons button { font: inherit; margin-left: 0.4em; min-width: 5em; }
+}
+@media print {
+  .table-filter, .af-button, .af-panel { display: none !important; }
+  th.af-sorted-asc::after, th.af-sorted-desc::after { content: none; }
+}
