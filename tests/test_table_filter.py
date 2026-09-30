@@ -31,3 +31,15 @@ def test_filter_can_be_turned_off(content):
 
     assert 'MIN_ROWS' not in html
     assert 'position: sticky' in html     # headers still stay in view
+
+
+def test_panel_stays_open_for_what_happens_inside_it(content):
+    """Scrolling the value list (or its scrollbar, in Firefox) must not
+    close the panel: only clicks and scrolls outside it do."""
+    html = content.run()
+
+    assert "window.addEventListener('scroll', function (event) {\n" \
+        "    if (!inPanel(event)) closePanel();" in html
+    assert "document.addEventListener('mousedown', function (event) {\n" \
+        "    if (!inPanel(event)) closePanel();" in html
+    assert "document.addEventListener('click', closePanel)" not in html
