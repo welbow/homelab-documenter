@@ -33,13 +33,15 @@ def test_filter_can_be_turned_off(content):
     assert 'position: sticky' in html     # headers still stay in view
 
 
-def test_panel_stays_open_for_what_happens_inside_it(content):
-    """Scrolling the value list (or its scrollbar, in Firefox) must not
-    close the panel: only clicks and scrolls outside it do."""
+def test_panel_stays_open_until_ok_cancel_or_another_panel(content):
+    """Clicking elsewhere or scrolling (even the page, e.g. when the wheel
+    keeps going past the end of the value list) doesn't close the panel;
+    OK, Cancel, Esc or another column's panel do."""
     html = content.run()
 
-    assert "window.addEventListener('scroll', function (event) {\n" \
-        "    if (!inPanel(event)) closePanel();" in html
-    assert "document.addEventListener('mousedown', function (event) {\n" \
-        "    if (!inPanel(event)) closePanel();" in html
+    assert "addEventListener('scroll'" not in html
+    assert "addEventListener('mousedown'" not in html
     assert "document.addEventListener('click', closePanel)" not in html
+    assert "cancel.addEventListener('click', closePanel)" in html
+    assert "if (event.key === 'Escape') closePanel();" in html
+    assert 'overscroll-behavior: contain;' in html

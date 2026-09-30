@@ -298,22 +298,10 @@
     openPanel = null;
   }
 
-  // Close the panel on anything outside it: a click elsewhere, or the page
-  // scrolling (it's fixed in place, so it would drift from its button).
-  // What happens inside it (scrolling the value list, dragging its
-  // scrollbar, selecting text in its search box) must not close it.
-  function inPanel(event) {
-    return openPanel && event.target instanceof Node &&
-      (openPanel.panel.contains(event.target) ||
-       openPanel.button.contains(event.target));
-  }
-  document.addEventListener('mousedown', function (event) {
-    if (!inPanel(event)) closePanel();
-  });
-  window.addEventListener('scroll', function (event) {
-    if (!inPanel(event)) closePanel();
-  }, true);
-  window.addEventListener('resize', closePanel);
+  // The panel stays open until OK, Cancel or Esc, or until another
+  // column's panel is opened (or its own button is pressed again): not on
+  // clicks elsewhere or scrolling, which happen by accident (e.g. the
+  // wheel keeps going past the end of the value list).
   document.addEventListener('keydown', function (event) {
     if (event.key === 'Escape') closePanel();
   });
