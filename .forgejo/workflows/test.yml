@@ -46,8 +46,11 @@ jobs:
       - name: Install Node for the upload
         if: always()
         run: apk add --no-cache nodejs >/dev/null
+      # The upload must never hold up or fail a run: the tests decide that
       - name: Upload reports
         if: always()
+        timeout-minutes: 5
+        continue-on-error: true
         uses: https://code.forgejo.org/forgejo/upload-artifact@v4
         with:
           name: test-reports
