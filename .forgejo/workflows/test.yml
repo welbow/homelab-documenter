@@ -24,10 +24,37 @@ jobs:
       # suite inside it, so the image smoke tests (nmap, bw) run too.
       - name: Build image
         run: docker build -q -t homelab-documenter-ci:${{ github.sha }} .
+      # Reports (#16): a page per run with each test's result, duration,
+      # logs and tracebacks; coverage (summary in the log, HTML report);
+      # JUnit XML. Written in the container, copied out below.
       - name: Run tests
         run: |
-          docker run --rm -w /app --entrypoint sh homelab-documenter-ci:${{ github.sha }} \
-            -c 'pip install -q --disable-pip-version-check -r requirements-dev.txt && python -m pytest -v -rxXs'
-      - name: Remove image
+          docker run --name tests-${{ github.sha }} -w /app --entrypoint sh \
+            homelab-documenter-ci:${{ github.sha }} -c '
+              pip install -q --disable-pip-version-check -r requirements-dev.txt &&
+              python -m pytest -v -rxXs \
+                --html=reports/tests.html --self-contained-html \
+                --junitxml=reports/junit.xml \
+                --cov --cov-report=term-missing \
+                --cov-report=html:reports/coverage'
+      # Kept even when tests fail: that's when they're most useful
+      - name: Copy reports out
         if: always()
-        run: docker rmi homelab-documenter-ci:${{ github.sha }} || true
+        run: docker cp tests-${{ github.sha }}:/app/reports ./reports || true
+      # upload-artifact runs on Node, which docker:cli doesn't have; the
+      # Forgejo fork, since actions/upload-artifact@v4 doesn't work on Forgejo
+      - name: Install Node for the upload
+        if: always()
+        run: apk add --no-cache nodejs >/dev/null
+      - name: Upload reports
+        if: always()
+        uses: https://code.forgejo.org/forgejo/upload-artifact@v4
+        with:
+          name: test-reports
+          path: reports/
+          if-no-files-found: warn
+      - name: Clean up
+        if: always()
+        run: |
+          docker rm tests-${{ github.sha }} || true
+          docker rmi homelab-documenter-ci:${{ github.sha }} || true

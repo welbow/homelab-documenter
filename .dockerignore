@@ -1,6 +1,6 @@
 bin
-__pycache__
-*.pyc
+**/__pycache__
+**/*.pyc
 
 # Never bake secrets or personal content into the image: the key lives in
 # .env and content (conf/, input/, output/) is mounted at runtime.
@@ -16,3 +16,7 @@ build/
 !.git/HEAD
 !.git/refs/heads/
 !.git/packed-refs
+.pytest_cache
+htmlcov
+reports
+.coverage

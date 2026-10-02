@@ -59,6 +59,8 @@ coverage.xml
 *.py,cover
 .hypothesis/
 .pytest_cache/
+# Test and coverage reports (hd test --html ... --cov ..., and CI)
+/reports/
 
 # Translations
 *.mo

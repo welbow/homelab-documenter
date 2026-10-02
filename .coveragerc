@@ -1,0 +1,11 @@
+# Coverage for `pytest --cov` (CI and docs/DEVELOPMENT.md): the engine and
+# the plugins, not the tests themselves
+[run]
+source = .
+omit =
+    tests/*
+    .venv/*
+
+[report]
+show_missing = true
+skip_empty = true

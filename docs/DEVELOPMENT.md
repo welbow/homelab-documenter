@@ -42,7 +42,33 @@ In the image, as CI does:
 hd test
 ```
 
-Extra arguments go to pytest, e.g. `hd test -k host -x`.
+Extra arguments go to pytest. Handy ones:
+
+| Option | Does |
+|---|---|
+| `-k host` | Only tests whose name matches `host`. |
+| `-x` | Stop at the first failure. |
+| `--lf` | Run only the tests that failed last time (`--ff`: those first, then the rest). |
+| `-vv -l` | Full assertion diffs, and the local variables in tracebacks. |
+| `--pdb` | Open the debugger at a failure (works through `hd test`, which is interactive). |
+
+**Reports**, the same ones CI makes, written to `reports/` in the checkout
+(ignored by git): a page with each test's result, time, logs and
+traceback, and a coverage report showing which lines the tests never run.
+
+```
+hd test --html=reports/tests.html --self-contained-html --cov --cov-report=html:reports/coverage
+```
+
+Open `reports/tests.html` and `reports/coverage/index.html` in a browser.
+`--cov` alone prints a coverage summary instead. What's measured is set in
+`.coveragerc` (the engine and plugins, not the tests).
+
+**CI** (`.forgejo/workflows/test.yml`) runs the suite in the image on every
+push and keeps the reports as an artifact of the run, **test-reports**
+(also when tests fail): download it from the run's page under Actions. It
+holds `tests.html`, `coverage/` and `junit.xml` (for anything that reads
+JUnit results).
 
 Locally (Python 3.12):
 
